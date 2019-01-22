@@ -1,0 +1,267 @@
+ -------------- Print Event {2018,12,29}, {11,44,49} -------------------- 
+debug ['#################################',test_oam,67,'N=',-3604] 
+ -------------- New Event {2018,12,29}, {11,44,49} -------------------- 
+ {2018,12,29}
+ 21641 >>>> event [subtract,100,'service started',subtract] : "subtract":  40001 "localhost" 
+
+-------------- New Event {2018,12,29}, {11,44,50} -------------------- 
+ {2018,12,29}
+ 21642 >>>> ok [dns_lib,72,'service registrated',"subtract","1.0.0"] : "subtract":  40001 "localhost" 
+
+-------------- New Event {2018,12,29}, {11,44,51} -------------------- 
+ {2018,12,29}
+ 21643 >>>> ok [oam,138,'started application',"subtract","1.0.0"] : "oam":  40000 "localhost" 
+
+-------------- Print Event {2018,12,29}, {11,44,51} -------------------- 
+debug [test_oam,72,'REEEEEEESSSUUUUULLLTTTTTTAAAT',-2] 
+ -------------- New Event {2018,12,29}, {11,44,52} -------------------- 
+ {2018,12,29}
+ 21644 >>>> ok [nfvi,241,'service stopped',"localhost",31080] : "nfvi":  40001 "localhost" 
+
+-------------- New Event {2018,12,29}, {11,44,52} -------------------- 
+ {2018,12,29}
+ 21645 >>>> ok [dns_lib,109,'service de-registrated',"subtract","1.0.0"] : "subtract":  40001 "localhost" 
+
+-------------- New Event {2018,12,29}, {11,44,52} -------------------- 
+ {2018,12,29}
+ 21646 >>>> ok [oam,152,'Stopped Application ',"subtract","1.0.0"] : "oam":  40000 "localhost" 
+
+-------------- Print Event {2018,12,29}, {11,44,52} -------------------- 
+debug [test_oam,82,'STOOOOPPEEEED ',{ok,[]}] 
+ -------------- Print Event {2018,12,29}, {11,44,52} -------------------- 
+debug ['#################################',test_oam,67,'N=',-3605] 
+ 
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+Too many processes
+
+
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+** Generic server rex terminating 
+** Last message in was {call,erlang,apply,
+                             [repo,read_josca_file,["subtract","1.0.0"]],
+                             <0.157.0>}
+** When Server state == #{<0.19527.143> =>
+                              {<0.26887.142>,#Ref<0.0.262146.137089>}}
+** Reason for termination == 
+** {system_limit,[{erlang,spawn_opt,
+                          [{erlang,apply,[#Fun<rpc.1.19547876>,[]],[monitor]}],
+                          []},
+                  {erlang,spawn_monitor,1,[]},
+                  {rpc,handle_call_call,6,[{file,"rpc.erl"},{line,191}]},
+                  {gen_server,try_handle_call,4,
+                              [{file,"gen_server.erl"},{line,615}]},
+                  {gen_server,handle_msg,5,
+                              [{file,"gen_server.erl"},{line,647}]},
+                  {proc_lib,init_p_do_apply,3,
+                            [{file,"proc_lib.erl"},{line,247}]}]}
+badrpc {tcp,237,repo,read_josca_file,
+           ["subtract","1.0.0"],
+           {'EXIT',
+               {{system_limit,
+                    [{erlang,spawn_opt,
+                         [{erlang,apply,[#Fun<rpc.1.19547876>,[]],[monitor]}],
+                         []},
+                     {erlang,spawn_monitor,1,[]},
+                     {rpc,handle_call_call,6,[{file,"rpc.erl"},{line,191}]},
+                     {gen_server,try_handle_call,4,
+                         [{file,"gen_server.erl"},{line,615}]},
+                     {gen_server,handle_msg,5,
+                         [{file,"gen_server.erl"},{line,647}]},
+                     {proc_lib,init_p_do_apply,3,
+                         [{file,"proc_lib.erl"},{line,247}]}]},
+                {gen_server,call,
+                    [{rex,nfvi_master@main},
+                     {call,erlang,apply,
+                         [repo,read_josca_file,["subtract","1.0.0"]],
+                         <0.157.0>},
+                     60000]}}},
+           nfvi_master@main}
+badrpc {tcp,237,nfv_mgr,start_application,
+           ["subtract","1.0.0"],
+           {'EXIT',
+               {{system_limit,
+                    [{erlang,spawn_opt,
+                         [{erlang,apply,[#Fun<rpc.1.19547876>,[]],[monitor]}],
+                         []},
+                     {erlang,spawn_monitor,1,[]},
+                     {rpc,handle_call_call,6,[{file,"rpc.erl"},{line,191}]},
+                     {gen_server,try_handle_call,4,
+                         [{file,"gen_server.erl"},{line,615}]},
+                     {gen_server,handle_msg,5,
+                         [{file,"gen_server.erl"},{line,647}]},
+                     {proc_lib,init_p_do_apply,3,
+                         [{file,"proc_lib.erl"},{line,247}]}]},
+                {gen_server,call,
+                    [{rex,nfvi_master@main},
+                     {call,erlang,apply,
+                         [nfv_mgr,start_application,["subtract","1.0.0"]],
+                         <0.94.0>},
+                     60000]}}},
+           nfvi_master@main}
+
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+** Generic server nfv_mgr terminating 
+** Last message in was {start_application,"subtract","1.0.0"}
+** When Server state == {state,[{public_ip,"localhost"},
+                                {public_port,40000},
+                                {local_ip,"localhost"},
+                                {local_port,20005},
+                                {service_id,"nfv_mgr"},
+                                {vsn,"1.0.0"}],
+                               [],
+                               [[{{1546,80291,75048},
+                                  [{public_ip,"localhost"},
+                                   {public_port,40001},
+                                   {local_ip,"localhost"},
+                                   {local_port,31080},
+                                   {service_id,"subtract"},
+                                   {vsn,"1.0.0"}]}]]}
+** Reason for termination == 
+** {badarg,
+       [{lists,keyfind,
+            [services,1,
+             {error,
+                 [tcp,238,
+                  {'EXIT',
+                      {{system_limit,
+                           [{erlang,spawn_opt,
+                                [{erlang,apply,
+                                     [#Fun<rpc.1.19547876>,[]],
+                                     [monitor]}],
+                                []},
+                            {erlang,spawn_monitor,1,[]},
+                            {rpc,handle_call_call,6,
+                                [{file,"rpc.erl"},{line,191}]},
+                            {gen_server,try_handle_call,4,
+                                [{file,"gen_server.erl"},{line,615}]},
+                            {gen_server,handle_msg,5,
+                                [{file,"gen_server.erl"},{line,647}]},
+                            {proc_lib,init_p_do_apply,3,
+                                [{file,"proc_lib.erl"},{line,247}]}]},
+                       {gen_server,call,
+                           [{rex,nfvi_master@main},
+                            {call,erlang,apply,
+                                [repo,read_josca_file,["subtract","1.0.0"]],
+                                <0.157.0>},
+                            60000]}}},
+                  nfvi_master@main,repo,read_josca_file,
+                  ["subtract","1.0.0"]]}],
+            []},
+        {josca,services,1,[{file,"services/nfv_mgr/src/josca.erl"},{line,48}]},
+        {josca,start_order,2,
+            [{file,"services/nfv_mgr/src/josca.erl"},{line,128}]},
+        {nfv_mgr_lib,start_application,3,
+            [{file,"services/nfv_mgr/src/nfv_mgr_lib.erl"},{line,38}]},
+        {nfv_mgr,handle_call,3,
+            [{file,"services/nfv_mgr/src/nfv_mgr.erl"},{line,183}]},
+        {gen_server,try_handle_call,4,[{file,"gen_server.erl"},{line,615}]},
+        {gen_server,handle_msg,5,[{file,"gen_server.erl"},{line,647}]},
+        {proc_lib,init_p_do_apply,3,[{file,"proc_lib.erl"},{line,247}]}]}
+
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+Error in process <0.29489.140> on node nfvi_master@main with exit value:
+{{badmatch,{error,closed}},
+ [{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+badrpc {tcp,237,dns,get_instances,
+           ["log"],
+           {'EXIT',
+               {noproc,
+                   {gen_server,call,
+                       [{rex,nfvi_master@main},
+                        {call,erlang,apply,
+                            [dns,get_instances,["log"]],
+                            <0.74.0>},
+                        60000]}}},
+           nfvi_master@main}
+badrpc {tcp,237,dns,get_instances,
+           ["subtract"],
+           {'EXIT',
+               {noproc,
+                   {gen_server,call,
+                       [{rex,nfvi_master@main},
+                        {call,erlang,apply,
+                            [dns,get_instances,["subtract"]],
+                            <0.74.0>},
+                        60000]}}},
+           nfvi_master@main}
+badrpc {tcp,237,dns,get_instances,
+           ["log"],
+           {'EXIT',
+               {noproc,
+                   {gen_server,call,
+                       [{rex,nfvi_master@main},
+                        {call,erlang,apply,
+                            [dns,get_instances,["log"]],
+                            <0.74.0>},
+                        60000]}}},
+           nfvi_master@main}
+badrpc {tcp,237,dns,get_instances,
+           ["oam"],
+           {'EXIT',
+               {noproc,
+                   {gen_server,call,
+                       [{rex,nfvi_master@main},
+                        {call,erlang,apply,
+                            [dns,get_instances,["oam"]],
+                            <0.74.0>},
+                        60000]}}},
+           nfvi_master@main}
+badrpc {tcp,237,dns,get_instances,
+           ["log"],
+           {'EXIT',
+               {noproc,
+                   {gen_server,call,
+                       [{rex,nfvi_master@main},
+                        {call,erlang,apply,
+                            [dns,get_instances,["log"]],
+                            <0.74.0>},
+                        60000]}}},
+           nfvi_master@main}
+
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+Too many processes
+
+
+=ERROR REPORT==== 29-Dec-2018::11:44:52 ===
+Error in process <0.38.24> on node nfvi_master@main with exit value:
+{system_limit,[{erlang,spawn_opt,
+                       [{erlang,apply,[#Fun<rpc.3.19547876>,[]],[monitor]}],
+                       []},
+               {erlang,spawn_monitor,1,[]},
+               {rpc,do_call,3,[{file,"rpc.erl"},{line,331}]},
+               {tcp,action,2,
+                    [{file,"services/common/src/tcp.erl"},{line,235}]},
+               {tcp,loop,1,
+                    [{file,"services/common/src/tcp.erl"},{line,206}]}]}
+
+=INFO REPORT==== 29-Dec-2018::11:44:52 ===
+    application: nfv_mgr
+    exited: shutdown
+    type: temporary
+2018-12-29 11:44:53 std_info            
+    application: kernel
+    exited: shutdown
+    type: permanent
+2018-12-29 11:44:53 Error in process ~p with exit value:~n~p~n
+	<0.95.16>
+	{{badmatch,{error,closed}},[{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+2018-12-29 11:44:54 Error in process ~p with exit value:~n~p~n
+	<0.20020.151>
+	{{badmatch,{error,closed}},[{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+2018-12-29 11:44:54 Error in process ~p with exit value:~n~p~n
+	<0.3006.124>
+	{{badmatch,{error,closed}},[{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+2018-12-29 11:44:54 Error in process ~p with exit value:~n~p~n
+	<0.29390.136>
+	{{badmatch,{error,closed}},[{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+2018-12-29 11:44:54 Error in process ~p with exit value:~n~p~n
+	<0.58.32>
+	{{badmatch,{error,closed}},[{tcp,par_connect,1,[{file,"services/common/src/tcp.erl"},{line,162}]}]}
+{"Kernel pid terminated",application_controller,"{application_terminated,kernel,shutdown}"}
+Kernel pid terminated (application_controller) ({application_terminated,kernel,shutdown})
+
+Crash dump is being written to: erl_crash.dump...done
+Makefile:3: recipe for target 'all' failed
+make: *** [all] Error 1
+pi@main:~/erlang/infrastructure/test/w_master/nfvi$ 
+

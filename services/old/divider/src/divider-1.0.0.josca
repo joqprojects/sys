@@ -1,0 +1,9 @@
+{specification, divider}.
+{description, "Josca file for divider" }.
+{vsn, "1.0.0" }.
+{exported_services,[{"divider","1.0.0"}]}.
+{num_instances,1}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[disc]}.
+{dependencies,[]}.

@@ -1,0 +1,10 @@
+{specification, mymath}.
+{type,application}.
+{description, "test for "}.
+{vsn, "1.0.0" }.
+{exported_services,[]}.
+{num_instances,2}.
+{zone,["stugan.attic"]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies ,[{"adder","1.0.0"},{"subtract","1.0.0"},{"divider","1.0.0"},{"multi","1.0.0"}]}.

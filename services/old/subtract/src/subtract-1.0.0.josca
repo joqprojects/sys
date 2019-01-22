@@ -1,0 +1,9 @@
+{specification, subtract}.
+{description, "Josca file for subtract" }.
+{vsn, "1.0.0" }.
+{exported_services,[{"subtract","1.0.0"}]}.
+{num_instances,1}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies,[]}.

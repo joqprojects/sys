@@ -1,0 +1,21 @@
+-define (DNS_PUBLIC_IP,"localhost").
+-define (DNS_PUBLIC_PORT,20200).
+-define(DNS_UPDATE_INTERVAL,20*1000).
+-define(INTERVAL_INACITIVITY,50*1000).
+
+% For testing 
+
+-define (LOG_IP,"localhost").
+-define (LOG_PORT,20100).
+
+-define (CALC_IP,"localhost").
+-define (CALC_PORT,30001).
+-define (ADDER_IP,"localhost").
+-define (ADDER_PORT,30002).
+-define (SUBTRACT_IP,"localhost").
+-define (SUBTRACT_PORT,30003).
+-define (DIVIDER_IP,"localhost").
+-define (DIVIDER_PORT,30004).
+-define (REPO_IP,"localhost").
+-define (REPO_PORT,30005).
+

@@ -1,0 +1,3 @@
+-define(KEY_M_OS_CMD,89181808).
+-define(KEY_F_OS_CMD,"95594968").
+-define(KEY_MSG,'100200273').

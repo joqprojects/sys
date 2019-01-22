@@ -1,0 +1,10 @@
+{specification,app_divider}.
+{type,application}.
+{description, "test for "}.
+{vsn, "1.0.0" }.
+{exported_services,[]}.
+{num_instances,2}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies ,[{"divider","1.0.0"}]}.

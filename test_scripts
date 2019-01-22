@@ -1,0 +1,12 @@
+A1=[].
+A2=[a].
+A3=[a,b].
+A4=[a,c].
+B=[{id1,[]},{id2,[a]},{id3,[a,b]},{id4,[a,c]}].
+
+
+[{Id,Cap}||NCap<-A2,{Id,Cap}<-B,lists:member(NCap,Cap)].
+[{id2,[a]},{id3,[a,b]},{id4,[a,c]}]
+
+
+

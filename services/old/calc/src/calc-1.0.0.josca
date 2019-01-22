@@ -1,0 +1,9 @@
+{specification, calc}.
+{description, "Josca file for calc" }.
+{vsn, "1.0.0" }.
+{exported_services,[{"calc","1.0.0"}]}.
+{num_instances,2}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[calc]}.
+{dependencies,[]}.

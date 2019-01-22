@@ -1,0 +1,29 @@
+Minimal viable product:
+1)Stop service: Remove services that are specific for the service and not the ones that are also used by other services
+2) Each service deployes in two or more instances. Excemption is services that handles specific hw (for obvious reasons)
+2)
+Nfvi -> Lost contact: 
+nfv_mgr -> 	if possible move services to existing node
+		if not possible - remove related application and all services
+
+Contact with Nfvi:
+nfv_mgr ->	scratch nfvi 
+		Try to deploy depricated applications 
+
+scratch nfvi:
+	1.kill hidden nodes  rpc:call('Port@Host',init,stop,[]). 
+	2.Remove service dirs
+	 
+Move vim functionality to nfv_mgr.
+
+
+When a node restarts it scratch all services ..
+If it comes back before tiem_out it will be wrong infromation regarding deploed services on that node
+If it comesback after time out it is possibible that services are removed or not...
+
+When a node disappers or have restarted - try to move services other working nodes ,if not possible remove from list.
+
+
+
+
+

@@ -1,0 +1,9 @@
+{specification, calc_app}.
+{description, "calculator application" }.
+{vsn, "1.0.0" }.
+{exported_services,[]}.
+{num_instances,1}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies,[{"adder","1.0.0"},{"divider","1.0.0"}]}.
