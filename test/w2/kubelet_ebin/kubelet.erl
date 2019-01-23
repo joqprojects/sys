@@ -11,6 +11,8 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("kube/kubelet/src/kubelet_local.hrl").
+
 -include("kube/include/trace_debug.hrl").
 -include("kube/include/tcp.hrl").
 -include("certificate/cert.hrl").
@@ -27,7 +29,7 @@
 %% --------------------------------------------------------------------
 %% Records
 %% --------------------------------------------------------------------
--record(state, {kubelet_info,lSock,max_workers,active_workers,workers,dns_list}).
+
 %% --------------------------------------------------------------------
 
 
@@ -105,7 +107,8 @@ init([]) ->
     {max_workers,MaxWorkers}=lists:keyfind(max_workers,1,InitialInfo),
     {zone,Zone}=lists:keyfind(zone,1,InitialInfo),
     {capabilities,Capabilities}=lists:keyfind(capabilities,1,InitialInfo),
-    {pre_load_apps,PreLoadApps}=lists:keyfind(pre_load_apps,1,InitialInfo),   
+    {pre_load_apps,PreLoadApps}=lists:keyfind(pre_load_apps,1,InitialInfo), 
+    {dns,DnsIp,DnsPort}=lists:keyfind(dns,1,InitialInfo),    
     KubeletInfo=#kubelet_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
@@ -115,7 +118,7 @@ init([]) ->
 			zone=Zone,
 			capabilities=Capabilities
 		       },    
-    _Result=rpc:call(node(),kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort]),
+    _Result=rpc:call(node(),kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
   %  StartedApps=[{ServiceId_X,Vsn_X}||{ServiceId_X,Vsn_X,ok}<-Result],
     {ok, LSock} = gen_tcp:listen(NodePort,?SERVER_SETUP),
     Workers=init_workers(LSock,MaxWorkers,[]), % Glurk remove?
@@ -125,12 +128,12 @@ init([]) ->
     SenderInfo=#sender_info{ip_addr=NodeIp,
 			    port=NodePort,
 			    module=?MODULE,line=?LINE},
-    if_dns:call("controller",controller,node_register,[KubeletInfo],SenderInfo),
+    rpc:cast(node(),if_dns,call,["controller",{controller,node_register,[KubeletInfo]},{DnsIp,DnsPort}]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Started Service  ~p~n",[{?MODULE}]),
     {ok, #state{kubelet_info=KubeletInfo,
 		lSock=LSock,max_workers=MaxWorkers,
-		active_workers=0,workers=Workers,dns_list=[]}}.
+		active_workers=0,workers=Workers,dns_list=[],dns_addr={dns,DnsIp,DnsPort}}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -169,7 +172,7 @@ handle_call({start_service,ServiceId,Vsn},_From, State) ->
     #kubelet_info{ip_addr=MyIp,port=Port}=State#state.kubelet_info,   
     Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
 	      []->
-		   case rpc:call(node(),kubelet_lib,load_start_app,[ServiceId,Vsn,MyIp,Port]) of
+		   case rpc:call(node(),kubelet_lib,load_start_app,[ServiceId,Vsn,MyIp,Port,State]) of
 		       ok->
 			   ok;
 		       Err->
@@ -183,6 +186,7 @@ handle_call({start_service,ServiceId,Vsn},_From, State) ->
 
 handle_call({stop_service,ServiceId}, _From, State) ->
     DnsList=State#state.dns_list,  
+    
     Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
 	       []->
 		   NewState=State,
@@ -190,7 +194,7 @@ handle_call({stop_service,ServiceId}, _From, State) ->
 	       [DnsInfo]->   
 		   NewDnsList=lists:delete(DnsInfo,State#state.dns_list),
 		   NewState=State#state{dns_list=NewDnsList},
-		   case rpc:call(node(),kubelet_lib,stop_unload_app,[DnsInfo]) of
+		   case rpc:call(node(),kubelet_lib,stop_unload_app,[DnsInfo,State]) of
 		       ok->
 			   ok;
 		       Err->
@@ -212,12 +216,10 @@ handle_call({heart_beat}, _From, State) ->
     NodeInfo=State#state.kubelet_info,
     NodeIp=NodeInfo#kubelet_info.ip_addr,
     NodePort=NodeInfo#kubelet_info.port,
-    SenderInfo=#sender_info{ip_addr=NodeIp,
-			    port=NodePort,
-			    module=?MODULE,line=?LINE},
-    [rpc:cast(node(),if_dns,call,["controller",controller,dns_register,[DnsInfo],SenderInfo])||DnsInfo<-NewDnsList],
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    [rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort}])||DnsInfo<-NewDnsList],
     % Register node
-    rpc:cast(node(),if_dns,call,["controller",controller,node_register,[State#state.kubelet_info],SenderInfo]),
+    rpc:cast(node(),if_dns,call,["controller",{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort}]),
     NewState=State#state{dns_list=NewDnsList},
     Reply=ok,
    {reply, Reply, NewState};
@@ -332,8 +334,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 local_heart_beat(Interval)->
   %  io:format(" ~p~n",[{?MODULE,?LINE}]),
-    timer:sleep(Interval),
+    timer:sleep(100),
     ?MODULE:heart_beat(),
+    timer:sleep(Interval),
     spawn(fun()-> local_heart_beat(Interval) end).
 
 %% --------------------------------------------------------------------

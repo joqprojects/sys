@@ -1,0 +1,10 @@
+{specification, multi}.
+{type,service}.
+{description, "Josca file for adder" }.
+{vsn, "1.0.0" }.
+{exported_services,[{"multi","1.0.0"}]}.
+{num_instances,2}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[heat_ctrl]}.
+{dependencies ,[]}.

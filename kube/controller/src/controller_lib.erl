@@ -11,6 +11,8 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("kube/controller/src/controller_local.hrl").
+
 -include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
 -include("kube/include/dns_data.hrl").
@@ -50,20 +52,20 @@ stop_services([{ServiceId,Vsn}|T],DnsList)->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-needed_services(ApplicationList)->
-    needed_services(ApplicationList,[]).
+needed_services(ApplicationList,State)->
+    needed_services(ApplicationList,State,[]).
 
-needed_services([],NeededServices)->
+needed_services([],_,NeededServices)->
     NeededServices;
-needed_services([{{AppId,Vsn},JoscaFile}|T],Acc)->
+needed_services([{{AppId,Vsn},JoscaFile}|T],State,Acc)->
     {dependencies,ServiceList}=lists:keyfind(dependencies,1,JoscaFile),
-    NewAcc=check_services(ServiceList,Acc),
-    needed_services(T,NewAcc).
+    NewAcc=check_services(ServiceList,State,Acc),
+    needed_services(T,State,NewAcc).
 
-check_services([],Acc)->
+check_services([],_,Acc)->
     Acc;
-check_services([{Id,Vsn}|T],Acc) ->
-    NewAcc=case josca:start_order(Id,Vsn) of
+check_services([{Id,Vsn}|T],State,Acc) ->
+    NewAcc=case josca:start_order(Id,Vsn,State) of
 	       {error,Err}->
 		   io:format("error~p~n",[{?MODULE,?LINE,Err}]),
 		   Acc;
@@ -75,19 +77,25 @@ check_services([{Id,Vsn}|T],Acc) ->
 			   lists:append(Services,Acc)
 		   end
 	   end,
-    check_services(T,NewAcc).
+    check_services(T,State,NewAcc).
 
 missing_services(NeededServices,DnsList)->
     AvailibleServices=[{DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}||DnsInfo<-DnsList],
     [{Id,Vsn}||{Id,Vsn}<-NeededServices, 
 	       lists:member({Id,Vsn},AvailibleServices)=:=false].
 
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
 
-start_services([],Nodes)->
+start_services([],_Nodes,_)->
     ok;
-start_services([{ServiceId,Vsn}|T],Nodes)->
+start_services([{ServiceId,Vsn}|T],Nodes,State)->
  %   io:format("~p~n",[{?MODULE,?LINE,ServicesId,Vsn,Nodes}]),
-    case if_dns:call("catalog",catalog,read,[ServiceId,Vsn]) of
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    case if_dns:call("catalog",{catalog,read,[ServiceId,Vsn]},{DnsIp,DnsPort}) of
 	{error,Err}->
 	    io:format("~p~n",[{?MODULE,?LINE,'error',Err}]);
 	{ok,_,JoscaInfo}->
@@ -104,7 +112,7 @@ start_services([{ServiceId,Vsn}|T],Nodes)->
 		    io:format("~p~n",[{?MODULE,?LINE,'Service start result =',R,ServiceId,Vsn}])
 	    end
     end,
-    start_services(T,Nodes).
+    start_services(T,Nodes,State).
 
 %% --------------------------------------------------------------------
 %% Function: 

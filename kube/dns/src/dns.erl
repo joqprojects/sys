@@ -23,7 +23,7 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{dns_info,dns_list}).
+-record(state,{dns_list,dns_info,dns_addr}).
 
 %% --------------------------------------------------------------------
 %% Exported functions
@@ -103,7 +103,10 @@ init([]) ->
     {ok,Port}=application:get_env(port),
     {ok,ServiceId}=application:get_env(service_id),
     {ok,Vsn}=application:get_env(vsn),
-    MyDnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
+    {ok,DnsIp}=application:get_env(dns_ip_addr),
+    {ok,DnsPort}=application:get_env(dns_port),
+
+    DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
 			ip_addr=MyIp,
@@ -111,7 +114,7 @@ init([]) ->
 		       },
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Started Service  ~p~n",[{?MODULE}]),
-    {ok, #state{dns_info=MyDnsInfo,dns_list=[]}}.
+   {ok, #state{dns_list=[],dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}. 
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3

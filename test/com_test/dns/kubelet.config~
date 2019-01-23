@@ -1,0 +1,9 @@
+{ip_addr,"80.216.3.159"}.
+{port,60010}.
+{service_id,"kubelete"}.
+{vsn,"1.0.0"}.
+{zone,"stockholm.flat.room_joq.w10"}.
+{capabilities,[]}.
+{max_workers,20}.
+{pre_load_apps,[dns]}.
+{dns,"80.216.3.159",60010}.

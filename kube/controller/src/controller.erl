@@ -44,6 +44,7 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("kube/controller/src/controller_local.hrl").
 
 -include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
@@ -58,7 +59,7 @@
 %% 
 %% --------------------------------------------------------------------
 %-record(state, {applications,services,cluster_status}).
--record(state,{dns_info,dns_list,node_list,application_list}).
+
 %%---------------------------------------------------------------------
 
 -export([campaign/0,
@@ -141,19 +142,26 @@ de_dns_register(DnsInfo)->
 %%
 %% --------------------------------------------------------------------
 init([]) ->
+  %  io:format("  ~p~n",[{?MODULE,?LINE}]),
     {ok,MyIp}=application:get_env(ip_addr),
     {ok,Port}=application:get_env(port),
     {ok,ServiceId}=application:get_env(service_id),
     {ok,Vsn}=application:get_env(vsn),
-    MyDnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
+    {ok,DnsIp}=application:get_env(dns_ip_addr),
+    {ok,DnsPort}=application:get_env(dns_port),
+  %  io:format("  ~p~n",[{?MODULE,?LINE}]),
+    DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
 			ip_addr=MyIp,
 			port=Port
 		       },
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end),     
     io:format("Started Service  ~p~n",[{?MODULE}]),
-    {ok, #state{dns_info=MyDnsInfo,dns_list=[],node_list=[],application_list=[]}}.  
+    {ok, #state{dns_list=[],node_list=[],application_list=[],
+		dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.  
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -166,9 +174,10 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({add,AppId,Vsn}, _From, State) ->
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
     Reply=case lists:keyfind({AppId,Vsn},1,State#state.application_list) of
 	      false->
-		  case if_dns:call("catalog",catalog,read,[AppId,Vsn]) of
+		  case if_dns:call("catalog",{catalog,read,[AppId,Vsn]}, {DnsIp,DnsPort}) of
 		      {error,Err}->
 			  NewState=State,
 			  {error,[?MODULE,?LINE,AppId,Vsn,Err]};
@@ -191,9 +200,9 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 	      {{AppId,Vsn},JoscaInfo}->
 		  NewAppList=lists:keydelete({AppId,Vsn},1,State#state.application_list),
 		%  io:format("NewAppList ~p~n",[{time(),NewAppList,?MODULE,?LINE}]),
-		  AllServices=rpc:call(node(),controller_lib,needed_services,[NewAppList]),
+		  AllServices=rpc:call(node(),controller_lib,needed_services,[NewAppList,State]),
 		%  io:format("AllServices ~p~n",[{time(),AllServices,?MODULE,?LINE}]),
-		  AppIdServices=rpc:call(node(),controller_lib,needed_services,[[{{AppId,Vsn},JoscaInfo}]]),
+		  AppIdServices=rpc:call(node(),controller_lib,needed_services,[[{{AppId,Vsn},JoscaInfo}],State]),
 		%  io:format("AppIdServices ~p~n",[{time(),AppIdServices,?MODULE,?LINE}]),
 		  ServicesToStop=[{ServiceId,Vsn}||{ServiceId,Vsn}<-AppIdServices,
 						   false==lists:member({ServiceId,Vsn},AllServices)],
@@ -230,7 +239,10 @@ handle_call({all_nodes},_From, State) ->
 %% --------------------------------------------------------------------
 
 handle_call({heart_beat}, _From, State) ->
-    if_dns:call("dns",dns,dns_register,[State#state.dns_info]),
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
     rpc:call(node(),kubelet,dns_register,[State#state.dns_info]),
     Now=erlang:now(),
     NewDnsList=[DnsInfo||DnsInfo<-State#state.dns_list,
@@ -269,16 +281,17 @@ handle_call(Request, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({campaign}, State) ->
-    NeededServices=rpc:call(node(),controller_lib,needed_services,[State#state.application_list]),
+    NeededServices=rpc:call(node(),controller_lib,needed_services,[State#state.application_list,State]),
 %    io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
     MissingServices=rpc:call(node(),controller_lib,missing_services,[NeededServices,State#state.dns_list]),
     case MissingServices of
 	[]->
-	    io:format("System is in preferred state  ~p~n",[{date(),time(),MissingServices}]);
+	    io:format("System is in preferred state  ~p~n",[{date(),time()}]),
+	    	    io:format("Availible services  ~p~n",[{NeededServices}]);
 	MissingServices->
 	    io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
     end,
-    rpc:call(node(),controller_lib,start_services,[MissingServices,State#state.node_list]),
+    rpc:call(node(),controller_lib,start_services,[MissingServices,State#state.node_list,State]),
     {noreply, State};
 
 

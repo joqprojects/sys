@@ -9,6 +9,8 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("kube/kubelet/src/kubelet_local.hrl").
+
 -include("kube/include/trace_debug.hrl").
 -include("kube/include/kubelet_data.hrl").
 -include("kube/include/dns_data.hrl").
@@ -28,6 +30,11 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
 dns_register(DnsInfo, DnsList) ->
     TimeStamp=erlang:now(),
     NewDnsInfo=DnsInfo#dns_info{time_stamp=TimeStamp},
@@ -44,10 +51,15 @@ de_dns_register(DnsInfo,DnsList)->
 				  {X#dns_info.ip_addr,X#dns_info.port,X#dns_info.service_id,X#dns_info.vsn})],
     NewDnsList.
 
-
-load_start_app(ServiceId,VsnInput,NodeIp,NodePort)->
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+load_start_app(ServiceId,VsnInput,NodeIp,NodePort,State)->
     Module=list_to_atom(ServiceId),
-    {ok,Artifact}=load_appfiles(ServiceId,VsnInput,NodeIp,NodePort),
+    {dns,DnsIp,DnsPort}=State#state.dns_addr, 
+    {ok,Artifact}=load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort}),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={_,_},
@@ -57,62 +69,102 @@ load_start_app(ServiceId,VsnInput,NodeIp,NodePort)->
     ok=application:set_env(Module,port,NodePort),
     ok=application:set_env(Module,service_id,ServiceId),
     ok=application:set_env(Module,vsn,Vsn),
+    ok=application:set_env(Module,dns_ip_addr,DnsIp),
+    ok=application:set_env(Module,dns_port,DnsPort),
     R=application:start(Module).    
-
-load_start_pre_loaded_apps(PreLoadApps,NodeIp,NodePort)->
-  %  io:format("~p~n",[{?MODULE,?LINE,PreLoadApps}]),
-    load_start_apps(PreLoadApps,NodeIp,NodePort,[]).
-load_start_apps([],_,_,StartResult)->
-    StartResult;
-load_start_apps([repo|T],NodeIp,NodePort,Acc) -> %Has to be pre loaded
-    ok=application:set_env(repo,ip_addr,NodeIp),
-    ok=application:set_env(repo,port,NodePort),
-    ok=application:set_env(repo,service_id,"repo"),
-    EbinDir=?SERVICE_EBIN,
-    Appfile=filename:join(EbinDir,"repo.app"),
-    {ok,[{application,_,Info}]}=file:consult(Appfile),
-    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
-    ok=application:set_env(repo,vsn,Vsn),
-    R=application:start(repo),
-    NewAcc=[{"repo",Vsn,R}|Acc],
-    load_start_apps(T,NodeIp,NodePort,NewAcc);
-
-load_start_apps([dns|T],NodeIp,NodePort,Acc) -> %Has to be pre loaded
-    ok=application:set_env(dns,ip_addr,NodeIp),
-    ok=application:set_env(dns,port,NodePort),
-    ok=application:set_env(dns,service_id,"dns"),
-    EbinDir=?SERVICE_EBIN,
-    Appfile=filename:join(EbinDir,"dns.app"),
-    {ok,[{application,_,Info}]}=file:consult(Appfile),
-    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
-    ok=application:set_env(dns,vsn,Vsn),
-    R=application:start(dns),
-    NewAcc=[{"dns",Vsn,R}|Acc],
-    load_start_apps(T,NodeIp,NodePort,NewAcc);
-    
-load_start_apps([Module|T],NodeIp,NodePort,Acc) ->
-    {ok,Artifact}=load_appfiles(atom_to_list(Module),latest,NodeIp,NodePort),
-    #artifact{service_id=ServiceId,
-	      vsn=Vsn,
-	      appfile={_,_},
-	      modules=_
-	     }=Artifact,
-    ok=application:set_env(Module,ip_addr,NodeIp),
-    ok=application:set_env(Module,port,NodePort),
-    ok=application:set_env(Module,service_id,ServiceId),
-    ok=application:set_env(Module,vsn,Vsn),
-    R=application:start(Module),
-    NewAcc=[{ServiceId,Vsn,R}|Acc],
-    load_start_apps(T,NodeIp,NodePort,NewAcc).
 
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-stop_unload_app(DnsInfo)->
+load_start_pre_loaded_apps(PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort})->
+  %  io:format("~p~n",[{?MODULE,?LINE,PreLoadApps}]),
+    load_start_apps(PreLoadApps,NodeIp,NodePort,[],{DnsIp,DnsPort}).
+load_start_apps([],_,_,StartResult,_)->
+    StartResult;
+load_start_apps([catalog|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre loaded
+    ok=application:set_env(catalog,dns_ip_addr,DnsIp),
+    ok=application:set_env(catalog,dns_port,DnsPort),
+
+    ok=application:set_env(catalog,ip_addr,NodeIp),
+    ok=application:set_env(catalog,port,NodePort),
+    ok=application:set_env(catalog,service_id,"catalog"),
+    EbinDir=?KUBELET_EBIN,
+    Appfile=filename:join(EbinDir,"catalog.app"),
+    {ok,[{application,_,Info}]}=file:consult(Appfile),
+    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
+    ok=application:set_env(catalog,vsn,Vsn),
+    R=application:start(catalog),
+    NewAcc=[{"catalog",Vsn,R}|Acc],
+  load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
+
+load_start_apps([repo|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre loaded
+ %    io:format(" ~p~n",[{?MODULE, ?LINE,NodeIp,NodePort,Acc,State}]),
+ 
+   ok=application:set_env(repo,dns_ip_addr,DnsIp),
+    ok=application:set_env(repo,dns_port,DnsPort),
+
+    ok=application:set_env(repo,ip_addr,NodeIp),
+    ok=application:set_env(repo,port,NodePort),
+    ok=application:set_env(repo,service_id,"repo"),
+    EbinDir=?KUBELET_EBIN,
+   Appfile=filename:join(EbinDir,"repo.app"),
+    {ok,[{application,_,Info}]}=file:consult(Appfile),
+    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
+    ok=application:set_env(repo,vsn,Vsn),
+
+    R=application:start(repo),
+    io:format("start_result ~p~n",[{?MODULE, ?LINE,R}]),
+    NewAcc=[{"repo",Vsn,R}|Acc],
+    load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
+
+load_start_apps([dns|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre loaded
+    ok=application:set_env(dns,ip_addr,NodeIp),
+    ok=application:set_env(dns,port,NodePort),
+    ok=application:set_env(dns,service_id,"dns"),
+    ok=application:set_env(dns,dns_ip_addr,DnsIp),
+    ok=application:set_env(dns,dns_port,DnsPort),
+    EbinDir=?KUBELET_EBIN,
+  %  EbinDir=".",
+    Appfile=filename:join(EbinDir,"dns.app"),
+    {ok,[{application,_,Info}]}=file:consult(Appfile),
+    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
+    ok=application:set_env(dns,vsn,Vsn),
+    R=application:start(dns),
+    NewAcc=[{"dns",Vsn,R}|Acc],
+    load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
+    
+load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
+  % io:format("~p~n",[{?MODULE,?LINE,Module,NodeIp,NodePort}]),
+    {ok,Artifact}=load_appfiles(atom_to_list(Module),latest,NodeIp,NodePort,{DnsIp,DnsPort}),
+ %  io:format("~p~n",[{?MODULE,?LINE,Artifact}]),
+    #artifact{service_id=ServiceId,
+	      vsn=Vsn,
+	      appfile={_,_},
+	      modules=_
+	     }=Artifact,
+
+    ok=application:set_env(Module,dns_ip_addr,DnsIp),
+    ok=application:set_env(Module,dns_port,DnsPort),
+    ok=application:set_env(Module,ip_addr,NodeIp),
+    ok=application:set_env(Module,port,NodePort),
+    ok=application:set_env(Module,service_id,ServiceId),
+    ok=application:set_env(Module,vsn,Vsn),
+    R=application:start(Module),
+   %    io:format("~p~n",[{?MODULE,?LINE,R}]),
+    NewAcc=[{ServiceId,Vsn,R}|Acc],
+    load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort}).
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+stop_unload_app(DnsInfo,State)->
     #dns_info{service_id=ServiceId,vsn=Vsn}=DnsInfo,
-    Artifact=if_dns:call("repo",repo,read_artifact,[ServiceId,Vsn]),    
+    {dns,DnsIp,DnsPort}=State#state.dns_addr, 
+    Artifact=if_dns:call("repo",{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort}),    
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,_},
@@ -122,6 +174,12 @@ stop_unload_app(DnsInfo)->
 	     "lib"->
 		 "lib_ebin";
 	     "kubelet"->
+		 "kubelet_ebin";
+	     "repo"->
+		 "kubelet_ebin";
+	     "catalog"->
+		 "kubelet_ebin";
+	     "controller"->
 		 "kubelet_ebin";
 	     _->
 		 ?SERVICE_EBIN
@@ -133,8 +191,8 @@ stop_unload_app(DnsInfo)->
     Appfile=filename:join(Ebin,AppFileBaseName),
     ok=file:delete(Appfile),
     DeleteResult=[file:delete(filename:join(Ebin,ModuleName))||{ModuleName,_}<-Modules], 
-    rpc:cast(node(),if_dns,call,["dns",dns,de_dns_register,[DnsInfo]]),
-    rpc:cast(node(),if_dns,call,["controller",dns,de_dns_register,[DnsInfo]]),
+    rpc:cast(node(),if_dns,call,["dns",{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["controller",{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
     Reply=case [Y||Y<-DeleteResult,false=={Y=:=ok}] of
 	      []->
 		  ok;
@@ -175,19 +233,25 @@ capabilities()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-load_appfiles(ServiceId,VsnInput,NodeIp,NodePort)->  % VsnInput Can be latest !!!
+load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort})->  % VsnInput Can be latest !!!
+
     Ebin=case ServiceId of
 	     "lib"->
 		 "lib_ebin";
 	     "kubelet"->
 		 "kubelet_ebin";
+	     "repo"->
+		 "kubelet_ebin";
+	     "catalog"->
+		 "kubelet_ebin";
+	     "controller"->
+		 "kubelet_ebin";
 	     _->
 		 ?SERVICE_EBIN
-	 end,
-    SenderInfo=#sender_info{ip_addr=NodeIp,
-			    port=NodePort,
-			    module=?MODULE,line=?LINE},
-    Artifact=if_dns:call("repo",repo,read_artifact,[ServiceId,VsnInput]),
+      end,   
+   % io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
+    Artifact=if_dns:call("repo",{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort}),
+    io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,AppBinary},
@@ -206,8 +270,8 @@ load_appfiles(ServiceId,VsnInput,NodeIp,NodePort)->  % VsnInput Can be latest !!
 load_start(ServiceId)->
     application:start(list_to_atom(ServiceId)).
 
-upgrade(ServiceId,Vsn,NodeIp,NodePort)->
-    Artifact=load_appfiles(ServiceId,Vsn,NodeIp,NodePort),
+upgrade(ServiceId,Vsn,NodeIp,NodePort,{DnsIp,DnsPort})->
+    Artifact=load_appfiles(ServiceId,Vsn,NodeIp,NodePort,{DnsIp,DnsPort}),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,AppBinary},

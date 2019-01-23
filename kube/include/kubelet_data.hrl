@@ -12,4 +12,4 @@
 	   zone=["house.room"],
 	   capabilities=[]	   
 	 }).
--define(SERVICE_EBIN,"service_ebin").
+

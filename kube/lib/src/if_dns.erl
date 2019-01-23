@@ -34,13 +34,13 @@
 %% Returns: non
 %% --------------------------------------------------------------------
 
-call(ServiceStr,M,F,A,SenderInfo)->
+call(ServiceStr,{M,F,A},{DnsIp,DnsPort},SenderInfo)->
    % io:format(" ~p~n",[{?MODULE,?LINE,ServiceStr,M,F,A},SenderInfo]),
     Reply=case ServiceStr of
 	      "dns"->
-		  tcp:call(?DNS_IP,?DNS_PORT,{M,F,A},SenderInfo);
+		  tcp:call(DnsIp,DnsPort,{M,F,A},SenderInfo);
 	      _->
-		  Instances=tcp:call(?DNS_IP,?DNS_PORT,{dns,get_instances,[ServiceStr]},SenderInfo),
+		  Instances=tcp:call(DnsIp,DnsPort,{dns,get_instances,[ServiceStr]},SenderInfo),
 		  case Instances of
 		      []->
 			  {error,[?MODULE,?LINE,'no service found',ServiceStr,SenderInfo]};
@@ -55,13 +55,13 @@ call(ServiceStr,M,F,A,SenderInfo)->
 	  end,
     Reply.
 
-call(ServiceStr,M,F,A)->
+call(ServiceStr,{M,F,A},{DnsIp,DnsPort})->
    % io:format(" ~p~n",[{?MODULE,?LINE,ServiceStr,M,F,A}]),
     Reply=case ServiceStr of
 	      "dns"->
-		  rpc:call(node(),tcp,call,[?DNS_IP,?DNS_PORT,{M,F,A}]);
+		  rpc:call(node(),tcp,call,[DnsIp,DnsPort,{M,F,A}]);
 	      _->
-		  Instances=rpc:call(node(),tcp,call,[?DNS_IP,?DNS_PORT,{dns,get_instances,[ServiceStr]}]),
+		  Instances=rpc:call(node(),tcp,call,[DnsIp,DnsPort,{dns,get_instances,[ServiceStr]}]),
 		  case Instances of
 		      []->
 			  {error,[?MODULE,?LINE,'no service found',ServiceStr]};

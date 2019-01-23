@@ -10,6 +10,8 @@
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("services/divider_100/src/divider_local.hrl").
+
 -include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
 -include("kube/include/data.hrl").
@@ -20,7 +22,7 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state, {dns_info}).
+
 
 %% --------------------------------------------------------------------
 
@@ -88,19 +90,23 @@ init([]) ->
     {ok,Port}=application:get_env(port),
     {ok,ServiceId}=application:get_env(service_id),
     {ok,Vsn}=application:get_env(vsn),
-    MyDnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
+    {ok,DnsIp}=application:get_env(dns_ip_addr),
+    {ok,DnsPort}=application:get_env(dns_port),
+
+    DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
 			ip_addr=MyIp,
 			port=Port
 		       },
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
-    rpc:cast(node(),if_dns,call,["controller",controller,dns_register,[MyDnsInfo]]),
-    rpc:cast(node(),if_dns,call,["dns",dns,dns_register,[MyDnsInfo]]),
-    rpc:cast(node(),kubelet,dns_register,[MyDnsInfo]),
+    {ok, #state{dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.   
 
-    {ok, #state{dns_info=MyDnsInfo}}.   
-    
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
 %% Description: Handling call messages
@@ -118,9 +124,14 @@ handle_call({divi,A,B}, _From, State) ->
 
 
 handle_call({heart_beat}, _From, State) ->
-    DnsInfo=State#state.dns_info,   
-    if_dns:call("dns",dns,dns_register,[DnsInfo]),
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
     rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
+   % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
     Reply=ok,
    {reply, Reply, State};
     
@@ -143,8 +154,10 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+
+
 handle_cast(Msg, State) ->
-    DnsInfo=State#state.dns_info,
+ %   DnsInfo=State#state.dns_info,
  %   if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Msg]),
     io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
     {noreply, State}.
@@ -157,10 +170,17 @@ handle_cast(Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 
+handle_info({tcp_closed,_Port}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
+
+handle_info({tcp,_Port,_Bin}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
 
 
 handle_info(Info, State) ->
-  DnsInfo=State#state.dns_info,
+ % DnsInfo=State#state.dns_info,
   %  if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Info]),
     io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.

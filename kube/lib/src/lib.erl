@@ -89,7 +89,7 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-    spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
+  %  spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     {ok, #state{dns_info=MyDnsInfo}}.
     
 %% --------------------------------------------------------------------
@@ -105,8 +105,8 @@ init([]) ->
 
 handle_call({heart_beat}, _From, State) ->
     DnsInfo=State#state.dns_info,
-    if_dns:call("dns",dns,dns_register,[DnsInfo]),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
+ %   if_dns:call("dns",dns,dns_register,[DnsInfo]),
+  %  rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
    % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
     Reply=ok,
    {reply, Reply, State};
@@ -116,7 +116,7 @@ handle_call({stop}, _From, State) ->
 
 handle_call(Request, From, State) ->
     DnsInfo=State#state.dns_info,
-    if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Request,From]),	
+   % if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Request,From]),	
     Reply = {unmatched_signal,?MODULE,Request,From},
     {reply, Reply, State}.
 
@@ -128,8 +128,8 @@ handle_call(Request, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    DnsInfo=State#state.dns_info,
-    if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Msg]),	
+   % DnsInfo=State#state.dns_info,
+   % if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Msg]),	
     {noreply, State}.
 
 %% --------------------------------------------------------------------

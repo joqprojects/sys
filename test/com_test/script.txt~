@@ -1,0 +1,3 @@
+if_dns:call([{service,dns,latest},{mfa,erlang,date,[]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{time_out,2000}]).
+
+rpc:call(node(),if_dns,call,[[service,dns,latest},{mfa,erlang,date,[]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{time_out,2000}]]).

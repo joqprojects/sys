@@ -10,7 +10,7 @@
 %% --------------------------------------------------------------------
 %% Include files1
 %% --------------------------------------------------------------------
-
+-include("kube/controller/src/controller_local.hrl").
 %% --------------------------------------------------------------------
 %% External exports
 -compile(export_all).
@@ -103,9 +103,10 @@ dependencies(I)->
 %% --------------------------------------------------------------------------
 
 
-start_order(Name,Vsn)->
+start_order(Name,Vsn,State)->
   %  io:format("~p~n",[{?MODULE,?LINE,Name,Vsn}]),
-    Result=case if_dns:call("catalog",catalog,read,[Name,Vsn]) of
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    Result=case if_dns:call("catalog",{catalog,read,[Name,Vsn]},{DnsIp,DnsPort}) of
 	       {error,Err}->
 		   {error,[?MODULE,?LINE,Err]};
 	       {ok,_,JoscaInfo}->
@@ -119,16 +120,17 @@ start_order(Name,Vsn)->
 		  % io:format("~p~n",[{?MODULE,?LINE,Acc}]),
 		   {dependencies,JoscaFiles}=lists:keyfind(dependencies,1,JoscaInfo),
 		  % io:format("~p~n",[{?MODULE,?LINE,JoscaFiles}]),
-		   dfs(JoscaFiles,Acc)
+		   dfs(JoscaFiles,Acc,State)
 	   end,
     Result.
 
 
-dfs([],Acc)->
+dfs([],Acc,_)->
     Acc;
-dfs([{Name,Vsn}|T],Acc)->
-    io:format("~p~n",[{?MODULE,?LINE,Name,Vsn,Acc}]),    
-    case if_dns:call("catalog",catalog,read,[Name,Vsn]) of
+dfs([{Name,Vsn}|T],Acc,State)->
+    io:format("~p~n",[{?MODULE,?LINE,Name,Vsn,Acc}]),
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,    
+    case if_dns:call("catalog",{catalog,read,[Name,Vsn]},{DnsIp,DnsPort}) of
 	{error,Err}->
 	    JoscaFiles=[],
 	    Acc1=Acc,
@@ -143,8 +145,8 @@ dfs([{Name,Vsn}|T],Acc)->
 	    end,
 	    {dependencies,JoscaFiles}=lists:keyfind(dependencies,1,JoscaInfo)
     end,
-    Acc2=dfs(JoscaFiles,Acc1),
+    Acc2=dfs(JoscaFiles,Acc1,State),
     io:format("~p~n",[{?MODULE,?LINE,Acc2}]),
-    dfs(T,Acc2).
+    dfs(T,Acc2,State).
 
 %%-----------------------------------------------------------------------------
