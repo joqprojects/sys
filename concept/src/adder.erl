@@ -1,86 +1,71 @@
 %%% -------------------------------------------------------------------
 %%% Author  : Joq Erlang
+%%% Description : test application calc
 %%%  
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
--module(dns).
+-module(adder).
 
 -behaviour(gen_server).
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
+-include("services/adder_100/src/adder_local.hrl").
 
 -include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
 -include("kube/include/data.hrl").
 -include("kube/include/dns_data.hrl").
 %% --------------------------------------------------------------------
-%% Include files
-%% --------------------------------------------------------------------
-
 
 %% --------------------------------------------------------------------
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{dns_list,dns_info,dns_addr}).
+
 
 %% --------------------------------------------------------------------
-%% Exported functions
-%% --------------------------------------------------------------------
 
-%% dns functions 
--export([get_instances/2,get_instances/1,
-	 get_all_instances/0,
-	 dns_register/1,
-	 de_dns_register/1,
-	
-	 heart_beat/0
-	]
-      ).
 
+
+
+-export([add/2,crash/0
+	]).
 
 -export([start/0,
-	 stop/0
+	 stop/0,
+	 heart_beat/0
 	]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3,handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
 
+
 %% Gen server functions
 
 start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
-
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
 
 %%-----------------------------------------------------------------------
 
-
-%%-----------------------------------------------------------------------
-get_instances(ServiceStr)->
-    gen_server:call(?MODULE, {get_instances,ServiceStr},infinity).
-
-get_instances(ServiceStr,VsnStr)->
-    gen_server:call(?MODULE, {get_instances,ServiceStr,VsnStr},infinity).
-    
-get_all_instances()->
-    gen_server:call(?MODULE, {get_all_instances},infinity).
-
 heart_beat()->
     gen_server:call(?MODULE, {heart_beat},infinity).
+
+
+add(A,B)->
+    gen_server:call(?MODULE, {add,A,B},infinity).
+
+crash()->
+    gen_server:call(?MODULE, {crash},infinity).
+
 %%-----------------------------------------------------------------------
-
-dns_register(DnsInfo)->
-    gen_server:cast(?MODULE, {dns_register,DnsInfo}).  
-
-de_dns_register(DnsInfo)->  
-    gen_server:cast(?MODULE, {de_dns_register,DnsInfo}). 
 
 %% ====================================================================
 %% Server functions
@@ -93,6 +78,11 @@ de_dns_register(DnsInfo)->
 %%          {ok, State, Timeout} |
 %%          ignore               |
 %%          {stop, Reason}
+% dict:fetch(oam_rpi3,D1).
+% [{brd_ip_port,"80.216.90.159"},
+% {port,6001},
+% {worker_ip_port,"80.216.90.159"},
+%  {port,6002}]
 %
 %% --------------------------------------------------------------------
 init([]) ->
@@ -112,9 +102,14 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
-    io:format("Started Service  ~p~n",[{?MODULE}]),
-   {ok, #state{dns_list=[],dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}. 
+     io:format("Service ~p~n",[{?MODULE, 'started ',?LINE}]),
+    {ok, #state{dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.   
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -127,34 +122,35 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 
-handle_call({get_all_instances},_From, State) ->
-    Reply=State#state.dns_list,
+handle_call({add,A,B}, _From, State) ->
+    Reply=rpc:call(node(),adder_lib,add,[A,B]),
     {reply, Reply, State};
 
-handle_call({get_instances,WantedServiceStr},_From, State) ->
-    Reply=rpc:call(node(),dns_lib,get_instances,[WantedServiceStr,State#state.dns_list]),
-    {reply, Reply, State};
-
-handle_call({get_instances,WantedServiceStr,WantedVsnStr},_From, State) ->
-    Reply=rpc:call(node(),dns_lib,get_instances,[WantedServiceStr,WantedVsnStr,State#state.dns_list]),
+handle_call({crash}, _From, State) ->
+    A=0,
+    Reply=1/A,
     {reply, Reply, State};
 
 handle_call({heart_beat}, _From, State) ->
-    DnsList=State#state.dns_list,
-    Now=erlang:now(),
-    NewDnsList=[DnsInfo||DnsInfo<-DnsList,
-		      (timer:now_diff(Now,DnsInfo#dns_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
-    NewState=State#state{dns_list=NewDnsList},
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
+		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
+   % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
     Reply=ok,
-   {reply, Reply, NewState};
+   {reply, Reply, State};
     
+
+
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
     DnsInfo=State#state.dns_info,
-    DnsList=State#state.dns_list,
-    dns_lib:local_log_call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Request,From],DnsList),	
+    if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Request,From]),
     Reply = {unmatched_signal,?MODULE,Request,From},
     {reply, Reply, State}.
 
@@ -165,26 +161,10 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-
-handle_cast({dns_register,DnsInfo}, State) ->
-    io:format("~p~n",[{?MODULE,?LINE,register,DnsInfo}]),
-    DnsList=State#state.dns_list,
-    NewDnsList=dns_lib:dns_register(DnsInfo,DnsList),
-    NewState=State#state{dns_list=NewDnsList},
-  %  io:format("~p~n",[{?MODULE,?LINE,register,NewState}]),
-    {noreply, NewState};
-
-handle_cast({de_dns_register,DnsInfo}, State) ->
-%    io:format("~p~n",[{?MODULE,?LINE,de_register,InitArgs}]),
-    DnsList=State#state.dns_list,
-    NewDnsList=dns_lib:de_dns_register(DnsInfo,DnsList),
-    NewState=State#state{dns_list=NewDnsList},
-    {noreply, NewState};
-
 handle_cast(Msg, State) ->
     DnsInfo=State#state.dns_info,
-    DnsList=State#state.dns_list,
-    dns_lib:local_log_call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Msg],DnsList),	
+ %   if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Msg]),
+    io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -195,10 +175,21 @@ handle_cast(Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 
+handle_info({tcp_closed,_Port}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
+
+handle_info({tcp,_Port,_Bin}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
+
 
 handle_info(Info, State) ->
-    io:format("unmatched match cast ~p~n",[{time(),?MODULE,?LINE,Info}]),
+%  DnsInfo=State#state.dns_info,
+%    if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Info]),
+    io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.
+
 
 %% --------------------------------------------------------------------
 %% Function: terminate/2
@@ -237,44 +228,15 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 local_heart_beat(Interval)->
-  %  io:format(" ~p~n",[{?MODULE,?LINE}]),
-    timer:sleep(Interval),
+%    io:format(" ~p~n",[{?MODULE,?LINE}]),
+    timer:sleep(100),
     ?MODULE:heart_beat(),
+    timer:sleep(Interval),
+
     spawn(fun()-> local_heart_beat(Interval) end).
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-%par_connect(LSock)->
- %  case gen_tcp:accept(LSock) of
-%	{ok,Socket}->
-%	    spawn(fun()-> par_connect(LSock) end),
-%	    loop(Socket);
-%	Err ->
-%	    Err
- %   end.
-%% --------------------------------------------------------------------
-%% Function: fun/x
-%% Description: fun x skeleton 
-%% Returns:ok|error
-%% ------------------------------------------------------------------
-%loop(Socket)->
- %   receive
-%	{tcp, Socket, Bin} ->
-%	    R=case binary_to_term(Bin) of
-%		  [M,F,A]->
-%		      case rpc:call(node(),erlang,apply,[M,F,A],?CALL_TIMEOUT) of
-%			  {badrpc,Err}->
-%			      {badrpc,Err};
-%			  Result->
-%			      Result
-%		      end;
-%		  Err->
-%		      {error,[?MODULE,?LINE,'unmatched signal',Err]}
-%	      end,
-%	    gen_tcp:send(Socket, term_to_binary(R)),
-%	    loop(Socket);
-%	{tcp_closed, Socket} ->
-%	    tcp_closed   
- %   end.
+

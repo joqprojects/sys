@@ -1,82 +1,182 @@
 %%% -------------------------------------------------------------------
 %%% Author  : Joq Erlang
-%%% Description : 
+%%% Description : test application calc
 %%%  
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
 -module(sys).
+
+-behaviour(gen_server).
 %% --------------------------------------------------------------------
-%% Include files 
+%% Include files
 %% --------------------------------------------------------------------
-%%  -include("").
-%-include_lib("eunit/include/eunit.hrl").
--include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
+-include("kube/include/dns_data.hrl").
 %% --------------------------------------------------------------------
--compile(export_all).
-%-export([test]).
+
+%% --------------------------------------------------------------------
+%% Key Data structures
+%% 
+%% --------------------------------------------------------------------
+
+-record(state, {}).
+%% --------------------------------------------------------------------
+
+
+
+
+-export([b/0
+	]).
+
+-export([start/0,
+	 stop/0
+	]).
+
+%% gen_server callbacks
+-export([init/1, handle_call/3,handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
 
+
+%% Gen server functions
+
+start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+stop()-> gen_server:call(?MODULE, {stop},infinity).
+
+
+
+%%-----------------------------------------------------------------------
+
+b()->
+    gen_server:call(?MODULE, {b},infinity).
+
+%%-----------------------------------------------------------------------
+
+%% ====================================================================
+%% Server functions
+%% ====================================================================
+
 %% --------------------------------------------------------------------
-%% Function: Application
+%% Function: init/1
+%% Description: Initiates the server
+%% Returns: {ok, State}          |
+%%          {ok, State, Timeout} |
+%%          ignore               |
+%%          {stop, Reason}
+% dict:fetch(oam_rpi3,D1).
+% [{brd_ip_port,"80.216.90.159"},
+% {port,6001},
+% {worker_ip_port,"80.216.90.159"},
+%  {port,6002}]
+%
+%% --------------------------------------------------------------------
+init([]) ->
+
+     io:format("Service ~p~n",[{?MODULE, 'started ',?LINE}]),
+    {ok, #state{}}.   
+    
+%% --------------------------------------------------------------------
+%% Function: handle_call/3
+%% Description: Handling call messages
+%% Returns: {reply, Reply, State}          |
+%%          {reply, Reply, State, Timeout} |
+%%          {noreply, State}               |
+%%          {noreply, State, Timeout}      |
+%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+
+handle_call({b}, _From, State) ->
+    sys_lib:do_test_1(3),
+    Reply=ok,
+    {reply, Reply, State};
+
+handle_call({stop}, _From, State) ->
+    {stop, normal, shutdown_ok, State};
+
+handle_call(Request, From, State) ->
+    io:format("unmatched match call ~p~n",[{?MODULE,?LINE,Request}]),
+    Reply = {unmatched_signal,?MODULE,Request,From},
+    {reply, Reply, State}.
+
+%% --------------------------------------------------------------------
+%% Function: handle_cast/2
+%% Description: Handling cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
+    {noreply, State}.
+
+%% --------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+
+handle_info({tcp_closed,_Port}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
+
+handle_info({tcp,_Port,_Bin}, State) ->
+  %  io:format("unmatched signal ~p~n",[{?MODULE,?LINE,tcp,Port,binary_to_term(Bin)}]),
+    {noreply, State};
+
+
+handle_info(Info, State) ->
+%  DnsInfo=State#state.dns_info,
+%    if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Info]),
+    io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
+    {noreply, State}.
+
+
+%% --------------------------------------------------------------------
+%% Function: terminate/2
+%% Description: Shutdown the server
+%% Returns: any (ignored by gen_server)
+%% --------------------------------------------------------------------
+terminate(_Reason, _State) ->
+    ok.
+
+%% --------------------------------------------------------------------
+%% Func: code_change/3
+%% Purpose: Convert process state when code is changed
+%% Returns: {ok, NewState}
+%% --------------------------------------------------------------------
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% --------------------------------------------------------------------
+%%% Internal functions
+%% --------------------------------------------------------------------
+%% --------------------------------------------------------------------
+%% Function: 
 %% Description:
 %% Returns: non
-%% ------------------------------------------------------------------
+%% --------------------------------------------------------------------
+
 
 %% --------------------------------------------------------------------
-%% 1. Initial set up
+%% Internal functions
 %% --------------------------------------------------------------------
-a()->
-    if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
-    do_calc(false),
-    if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}),  
-    ok.
-
-add()->
-    if_dns:call([{service,"controller","1.0.0"},{mfa,controller,add,["mymath","1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
-    ok.
-add(AppId)->
-    if_dns:call([{service,"controller","1.0.0"},{mfa,controller,add,[AppId,"1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
-    ok.
-
-remove()->
-     if_dns:call([{service,"controller","1.0.0"},{mfa,controller,remove,["mymath","1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
-    ok.
-
-remove(AppId)->
-     if_dns:call([{service,"controller","1.0.0"},{mfa,controller,remove,[AppId,"1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
-    ok.
-
-stop_test()->
-    if_dns:call("controller",controller,remove,["app_adder","1.0.0"]),
-    if_dns:call("controller",controller,remove,["mymath","1.0.0"]),
-    spawn(fun()->kill_session() end),
-    ok.
-kill_session()->
-    timer:sleep(1000),
-    erlang:halt(),
-    ok.
-  
     
-do_calc(true)->
-    ok;
-do_calc(false) ->
-    R1=if_dns:call("adder",{adder,add,[20,20]},{"localhost",60010}),
-    R2=if_dns:call("divider",{divider,divi,[410,10]},{"localhost",60010}),
-    R3=if_dns:call("multi",{multi,mul,[6,7]},{"localhost",60010}),
-    R4=if_dns:call("subtract",{subtract,sub,[63,20]},{"localhost",60010}),
-    case {R1,R2,R3,R4} of
-	{40,41.0,42,43}->
-	 io:format("Test succeded ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4}]),
-	    NewQuit=true;
-	 _->
-	    io:format("Error ~p~n",[{R1,R2,R3,R4}]),    
-	    timer:sleep(20*1000),
-	    NewQuit=false
-    end,
-    
-    do_calc(NewQuit).
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
 

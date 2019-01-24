@@ -103,20 +103,12 @@ cast(IpAddr,Port,{M,F,A})->
 
 
 send_cast(Addr,Port,Msg)->
- %   io:format(" ~p~n",[{?MODULE,?LINE,Msg}]),
+   % io:format(" ~p~n",[{?MODULE,?LINE,Msg}]),
     case gen_tcp:connect(Addr,Port,?CLIENT_SETUP) of
 	{ok,Socket}->
 	    Result=ok,
-	  %  io:format(" ~p~n",[{?MODULE,?LINE,Msg}]),
-	   % ok=gen_tcp:send(Socket,term_to_binary(Msg)),
-	    R=gen_tcp:send(Socket,term_to_binary(Msg)),
-	    case R of 
-		ok->
-		    ok;
-		Err->
-		    io:format(" ~p~n",[{?MODULE,?LINE,Err}])
-	    end,
-	    gen_tcp:close(Socket);
+	    ok=gen_tcp:send(Socket,term_to_binary(Msg)),
+ 	    gen_tcp:close(Socket);
 %	    _Pid=spawn(fun()-> cast_local(Socket,Msg) end);
 	{error,Err} ->
 	    Result={error,{Err,?MODULE,?LINE}}

@@ -1,0 +1,137 @@
+%%% -------------------------------------------------------------------
+%%% Author  : Joq Erlang
+%%% Description : 
+%%%  
+%%% Created : 10 dec 2012
+%%% -------------------------------------------------------------------
+-module(sys).
+%% --------------------------------------------------------------------
+%% Include files 
+%% --------------------------------------------------------------------
+%%  -include("").
+%-include_lib("eunit/include/eunit.hrl").
+-include("kube/include/tcp.hrl").
+-include("kube/include/dns.hrl").
+-include("kube/include/dns_data.hrl").
+
+%% --------------------------------------------------------------------
+-compile(export_all).
+%-export([test]).
+
+%% ====================================================================
+%% External functions
+%% ====================================================================
+
+%% --------------------------------------------------------------------
+%% Function: Application
+%% Description:
+%% Returns: non
+%% ------------------------------------------------------------------
+
+%% --------------------------------------------------------------------
+%% 1. Initial set up
+%% --------------------------------------------------------------------
+a()->
+    if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
+    do_calc(false),
+    if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}),  
+    ok.
+
+b()->
+    if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
+    do_test_1(3),
+    if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}),  
+    ok.
+do_test_1(0)->
+    ok;
+
+do_test_1(N) ->
+    DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",    % un_loaded, started
+		      service_id = "myservice",
+		      vsn = "1.0.0",
+		      ip_addr="localhost",
+		      port=5555},
+    tcp:cast("localhost",60010,{dns,dns_register,[DnsInfo]}),
+    R=tcp:call("localhost",60010,{dns,get_all_instances,[]}),
+    PidList=tcp_call("localhost",60010,{dns,get_all_instances,[]},N,[]),
+    R1=rec_call(PidList,N,[]),
+    io:format(" R1 ~p~n",[{?MODULE,?LINE,R1}]),
+    PidList2=tcp_call("localhost",60010,{dns,get_all_instances,[]},N,[]),
+    R2=rec_call(PidList2,1,[]),
+    io:format(" R2 ~p~n",[{?MODULE,?LINE,R2}]),
+    PidList3=tcp_call("localhost",60010,{dns,get_all_instances,[]},N,[]),
+    R3=rec_call(PidList3,0,[]),
+    io:format(" R3 ~p~n",[{?MODULE,?LINE,R3}]),
+    timer:sleep(1000),
+    do_test_1(N-1).
+
+tcp_call(_,_,_,0,Acc)->
+    Acc;
+tcp_call(IpAddr,Port,{M,F,A},Num,Acc)->
+    Self=self(),
+    Pid=spawn(fun()->do_tcp_call(IpAddr,Port,{M,F,A},Self) end),
+    NewAcc=[Pid|Acc],
+    tcp_call(IpAddr,Port,{M,F,A},Num-1,NewAcc).
+
+
+do_tcp_call(IpAddr,Port,{M,F,A},Parent)->
+    R=tcp:call(IpAddr,Port,{M,F,A}),
+    Parent!{self(),R}.
+
+rec_call(_,0,Acc)->
+    Acc;
+rec_call(PidList,Num,Acc)->
+    receive
+	{Pid,Result}->
+	    NewAcc=[Result|Acc]
+    after 2000 ->
+	    NewAcc=Acc
+    end,
+    rec_call(PidList,Num-1,NewAcc).
+
+
+add()->
+    if_dns:call([{service,"controller","1.0.0"},{mfa,controller,add,["mymath","1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
+    ok.
+add(AppId)->
+    if_dns:call([{service,"controller","1.0.0"},{mfa,controller,add,[AppId,"1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
+    ok.
+
+remove()->
+     if_dns:call([{service,"controller","1.0.0"},{mfa,controller,remove,["mymath","1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
+    ok.
+
+remove(AppId)->
+     if_dns:call([{service,"controller","1.0.0"},{mfa,controller,remove,[AppId,"1.0.0"]},{dns,"localhost",60010},{num_to_send,1},{num_to_rec,1},{timeout,5*1000}]),  
+    ok.
+
+stop_test()->
+    if_dns:call("controller",controller,remove,["app_adder","1.0.0"]),
+    if_dns:call("controller",controller,remove,["mymath","1.0.0"]),
+    spawn(fun()->kill_session() end),
+    ok.
+kill_session()->
+    timer:sleep(1000),
+    erlang:halt(),
+    ok.
+  
+    
+do_calc(true)->
+    ok;
+do_calc(false) ->
+    R1=if_dns:call("adder",{adder,add,[20,20]},{"localhost",60010}),
+    R2=if_dns:call("divider",{divider,divi,[410,10]},{"localhost",60010}),
+    R3=if_dns:call("multi",{multi,mul,[6,7]},{"localhost",60010}),
+    R4=if_dns:call("subtract",{subtract,sub,[63,20]},{"localhost",60010}),
+    case {R1,R2,R3,R4} of
+	{40,41.0,42,43}->
+	 io:format("Test succeded ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4}]),
+	    NewQuit=true;
+	 _->
+	    io:format("Error ~p~n",[{R1,R2,R3,R4}]),    
+	    timer:sleep(20*1000),
+	    NewQuit=false
+    end,
+    
+    do_calc(NewQuit).
+
