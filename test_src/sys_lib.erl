@@ -56,6 +56,7 @@ do_add(Quit) ->
     case R1 of
 	[42]->
 	    io:format(" Glurk ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4,R5,R6}]),  
+	    
 	    [R11]=R1,
 	    [R21,R22]=R2,
 	    [R31]=R3,
