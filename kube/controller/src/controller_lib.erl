@@ -44,16 +44,16 @@ stop_services([{ServiceId,Vsn}|T],DnsList,State)->
     ListWithIp=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port,DnsInfo#dns_info.service_id,DnsInfo#dns_info.port,DnsInfo}||DnsInfo<-DnsList,
 														    {ServiceId,Vsn}=:={DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}],
     
-    io:format("ListWithIp,Vsn ~p~n",[{time(),?MODULE,?LINE,ListWithIp}]),
+  %  io:format("ListWithIp,Vsn ~p~n",[{time(),?MODULE,?LINE,ListWithIp}]),
 
     R1= [{X_IpAddr,X_Port,X_ServiceId,X_Vsn,rpc:cast(node(),tcp,call,[X_IpAddr,X_Port,{kubelet,stop_service,[ServiceId]}])}||{X_IpAddr,X_Port,X_ServiceId,X_Vsn,_DnsInfo}<-ListWithIp],
-    io:format("result stop_service ~p~n",[{?MODULE,?LINE,R1}]),
+  %  io:format("result stop_service ~p~n",[{?MODULE,?LINE,R1}]),
    
     {dns,DnsIpAddr,DnsPort}=State#state.dns_addr,
     R2=[{rpc:cast(node(),if_dns,call,["controller",{controller,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
       rpc:cast(node(),if_dns,call,["dns",{dns,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
       rpc:cast(node(),tcp,call,[IpAddr,Port,{dns,de_dns_register,[DnsInfo]}])}||{IpAddr,Port,_,_,DnsInfo}<-ListWithIp],
-    io:format("result stop_service ~p~n",[{?MODULE,?LINE,R2}]),
+    io:format("result stop_service ~p~n",[{?MODULE,?LINE,ServiceId,Vsn,R2}]),
     stop_services(T,DnsList,State).
 						  
 %% --------------------------------------------------------------------
@@ -131,7 +131,7 @@ start_services([{ServiceId,Vsn}|T],Nodes,State)->
 schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumApps)->
 %    io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,NodesFullfilledNeeds,NumApps}]),
     NumNodes=lists:flatlength(NodesFullfilledNeeds),
-    io:format("NumNodes ~p~n",[{?MODULE,?LINE,NumNodes}]),
+%    io:format("NumNodes ~p~n",[{?MODULE,?LINE,NumNodes}]),
     Result=case NumNodes of
 	       0->
 		   io:format("Error ~p~n",[{?MODULE,?LINE,'No nodes are availible for the service ',ServiceId,Vsn}]),
@@ -150,7 +150,7 @@ do_start([KubeleteInfo|T],NumApps,ServicesId,Vsn,Acc)->
     IpAddr=KubeleteInfo#kubelet_info.ip_addr,
     Port=KubeleteInfo#kubelet_info.port,
     R=tcp:call(IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}),
-    io:format(" ~p~n",[{?MODULE,?LINE,R}]),
+ %   io:format(" ~p~n",[{?MODULE,?LINE,R}]),
     NewAcc=[R|Acc],
     do_start(T,NumApps-1,ServicesId,Vsn,NewAcc).
 

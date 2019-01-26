@@ -54,39 +54,66 @@ do_add(true,Parent)->
 do_add(Quit,Parent) ->
  %   io:format("~p~n",[{?MODULE,?LINE}]),
     R1=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},1,1),
+    case R1 of
+	{error,_}->
+	    io:format(" R1 ~p~n",[{?MODULE,?LINE,R1}]);
+	_->
+	%    [R11]=R1,
+	    io:format(" R1 ~w~n",[{?MODULE,?LINE,R1}])
+    end,	    
     R2=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,2),
+    case R2 of
+	{error,_}->
+	    io:format(" R2 ~p~n",[{?MODULE,?LINE,R2}]);
+	_->
+	   % [R21,R22]=R2,
+	    io:format(" R2 ~w~n",[{?MODULE,?LINE,R2}])
+    end,
     R3=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,1),
+    case R3 of
+	{error,_}->
+	    io:format(" R3 ~p~n",[{?MODULE,?LINE,R3}]);
+	_->
+	   % [R31]=R3,
+	    io:format(" R3 ~w~n",[{?MODULE,?LINE,R3}])
+    end,
     R4=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
+    case R4 of
+	{error,_}->
+	    io:format(" R4 ~p~n",[{?MODULE,?LINE,R4}]);
+	_->
+	    %[R41]=R4,
+	    io:format(" R4 ~w~n",[{?MODULE,?LINE,R4}])
+    end,
     R5=l_dns_2_call("adder",latest,{glurk,add,[20,22]},{"localhost",60010},2,1),
+    io:format(" R5 ~p~n",[{?MODULE,?LINE,R5}]),
     R6=l_dns_2_call("glurk_2",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
+    io:format(" R6 ~p~n",[{?MODULE,?LINE,R6}]),   
     R7=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},5,1),
+    case R7 of
+	{error,_}->
+	    io:format(" R7 ~p~n",[{?MODULE,?LINE,R7}]);
+	_->
+	 %   [R71]=R7,
+	    io:format(" R7 ~w~n",[{?MODULE,?LINE,R7}])
+    end,
     R8=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,5),
+    case R8 of
+	{error,_}->
+	    io:format(" R8 ~p~n",[{?MODULE,?LINE,R8}]);
+	
+	_->
+	   % [R81,R82]=R8,
+	    io:format(" R8 ~w~n",[{?MODULE,?LINE,R8}])
+    end,
     case R1 of
 	[42]->
-%	    io:format(" Glurk ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4,R5,R6}]),  
-	    
-	    [R11]=R1,
-	    [R21,R22]=R2,
-	    [R31]=R3,
-	    [R41]=R4,	    
-	    [R71]=R7,
-	    [R81,R82]=R8,
-	    io:format(">>>>>>>>>>>>>>>   Success -Erika it's working now/almost  !!!!!! Kram Paps <<<<<<<<<<<<<<<<<<<<  ~n"),
-	    io:format(" R11 ~p~n",[{?MODULE,?LINE,R11}]),
-	    io:format(" R21,R22 ~p~n",[{?MODULE,?LINE,R21,R22}]),
-	    io:format(" R31 ~p~n",[{?MODULE,?LINE,R31}]),    
-	    io:format(" R41 ~p~n",[{?MODULE,?LINE,R41}]),  
-	    io:format(" R5 ~p~n",[{?MODULE,?LINE,R5}]),  
-	    io:format(" R6 ~p~n",[{?MODULE,?LINE,R6}]),  
-	    io:format(" R71 ~p~n",[{?MODULE,?LINE,R71}]),  
-	    io:format(" R81,R82 ~p~n",[{?MODULE,?LINE,R81,R82}]),
-	    
+	    io:format(">>>>>>>>>>>>>>>   Success -Erika it's working now/almost  !!!!!! Kram Paps <<<<<<<<<<<<<<<<<<<<  ~n"),	    
 	    NewQuit=true;
 	_->
-	   % io:format(" R1 ~p~n",[{?MODULE,?LINE,R1}]),
-	   % io:format(" R2 ~p~n",[{?MODULE,?LINE,R2}]),
-	   % io:format(" R3 ~p~n",[{?MODULE,?LINE,R3}]),    
-	    timer:sleep( 10*1000),
+	   io:format(">>>>>  ~p~n",[{date(),time()}]),
+     
+	    timer:sleep( 5*1000),
 	    NewQuit=Quit
     end,
     do_add(NewQuit,Parent).
@@ -112,10 +139,12 @@ l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
 	%	   io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 		   Parent=self(),
 		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
-		   receive
-		       {P,R}->
-			   R
-		   end
+		   R=receive
+			 {P,R}->
+			     R
+		     after 15*1000->
+			     R={error,[?MODULE,?LINE,'timeout',ServiceId]}
+		     end
 	   end,
     Result.
     
@@ -129,19 +158,21 @@ l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
     end,
     Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId,Vsn]}) of
 	       {error,Err}->
-		   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
+		%   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
 		   {error,[?MODULE,?LINE,Err]};
 	       []->
-		   io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
+		 %  io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
 		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
 	       InstancesDnsInfo->
-		 %  io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
+	%	   io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 		   Parent=self(),
 		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
-		   receive
-		       {P,R}->
-			   R
-		   end
+		   R=receive
+			 {P,R}->
+			     R
+		     after 15*1000->
+			     R={error,[?MODULE,?LINE,'timeout',ServiceId,Vsn]}
+		     end
 	   end,
     Result. 
 
@@ -170,17 +201,18 @@ l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,Acc)->
 do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2)->
 %     io:format("  ~p~n",[{?MODULE,?LINE,M,F,A,IpAddr,Port}]),
 %    timer:sleep(100),
-    R=tcp:call(IpAddr,Port,{M,F,A}),
+    R=tcp:call(IpAddr,Port,{M,F,A},5*1000),
   %  io:format("  ~p~n",[{?MODULE,?LINE,R}]),
     Parent2!{self(),R}.
 
-rec_2_call(_,0,Acc)->
+rec_2_call(PidList,0,Acc)->
+   % [erlang:exit(Pid,die)||Pid<-PidList],
     Acc;
 rec_2_call(PidList,Num,Acc)->
     receive
 	{_Pid,Result}->
 	    NewAcc=[Result|Acc]
-    after 2000 ->
+    after 6*1000 ->
 	    NewAcc=Acc
     end,
     rec_2_call(PidList,Num-1,NewAcc).
