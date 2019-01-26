@@ -207,7 +207,7 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 		  ServicesToStop=[{X_ServiceId,X_Vsn}||{X_ServiceId,X_Vsn}<-AppIdServices,
 						   false==lists:member({X_ServiceId,X_Vsn},AllServices)],
 		 % io:format("ServicesToStop ~p~n",[{time(),ServicesToStop,?MODULE,?LINE}]),
-		  rpc:call(node(),controller_lib,stop_services,[ServicesToStop,State#state.dns_list]),
+		  rpc:call(node(),controller_lib,stop_services,[ServicesToStop,State#state.dns_list,State]),
 		  NewState=State#state{application_list=NewAppList},
 		  ok
 	  end,
