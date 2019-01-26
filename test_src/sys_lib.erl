@@ -142,8 +142,8 @@ l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
 		   R=receive
 			 {P,R}->
 			     R
-		     after 15*1000->
-			     R={error,[?MODULE,?LINE,'timeout',ServiceId]}
+		    % after 15*1000-> 
+		%	     R={error,[?MODULE,?LINE,'timeout',ServiceId]}
 		     end
 	   end,
     Result.
@@ -170,8 +170,8 @@ l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
 		   R=receive
 			 {P,R}->
 			     R
-		     after 15*1000->
-			     R={error,[?MODULE,?LINE,'timeout',ServiceId,Vsn]}
+		 %    after 15*1000->
+		%	     R={error,[?MODULE,?LINE,'timeout',ServiceId,Vsn]}
 		     end
 	   end,
     Result. 
@@ -199,10 +199,9 @@ l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,Acc)->
     l_tcp_2_call(T,{M,F,A},Parent,Send-1,Rec,NewAcc).
 
 do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2)->
-%     io:format("  ~p~n",[{?MODULE,?LINE,M,F,A,IpAddr,Port}]),
-%    timer:sleep(100),
-    R=tcp:call(IpAddr,Port,{M,F,A},5*1000),
-  %  io:format("  ~p~n",[{?MODULE,?LINE,R}]),
+
+    R=tcp:call(IpAddr,Port,{M,F,A},5*1000),   % glurk what to do with timeout as a parameter?
+ 
     Parent2!{self(),R}.
 
 rec_2_call(PidList,0,Acc)->
