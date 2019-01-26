@@ -3,7 +3,7 @@ system:
 	rm -rf test_ebin/* test_src/*~;
 	erlc -o test_ebin test_src/*.erl;
 	cp test_src/*.app test_ebin;
-	erl -pa test_ebin -pa ebin/lib -sname test_system;
+	erl -pa test_ebin -pa ebin/lib -s sys_lib start -sname test_system;
 clean:
 	rm -rf ebin/*/*;
 	rm -rf kube/*/src/*~ kube/*/test_src/*~ kube/*/*.dump kube/*~ kube/*/*~;

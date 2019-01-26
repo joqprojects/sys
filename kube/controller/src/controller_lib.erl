@@ -93,7 +93,7 @@ missing_services(NeededServices,DnsList)->
 start_services([],_Nodes,_)->
     ok;
 start_services([{ServiceId,Vsn}|T],Nodes,State)->
- %   io:format("~p~n",[{?MODULE,?LINE,ServicesId,Vsn,Nodes}]),
+ %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,Nodes}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
     case if_dns:call("catalog",{catalog,read,[ServiceId,Vsn]},{DnsIp,DnsPort}) of
 	{error,Err}->
@@ -108,7 +108,7 @@ start_services([{ServiceId,Vsn}|T],Nodes,State)->
 		[]->
 		    io:format("~p~n",[{?MODULE,?LINE,'error no availible nodes'}]);
 		NodesFullfilledNeeds->
-		    R=schedule_start(ServiceId,Vsn,NodesFullfilledNeeds),
+		    R=schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,?NUM_APPLICATIONS),
 		    io:format("~p~n",[{?MODULE,?LINE,'Service start result =',R,ServiceId,Vsn}])
 	    end
     end,
@@ -119,6 +119,32 @@ start_services([{ServiceId,Vsn}|T],Nodes,State)->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
+schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumApps)->
+%    io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,NodesFullfilledNeeds,NumApps}]),
+    NumNodes=lists:flatlength(NodesFullfilledNeeds),
+    io:format("NumNodes ~p~n",[{?MODULE,?LINE,NumNodes}]),
+    Result=case NumNodes of
+	       0->
+		   io:format("Error ~p~n",[{?MODULE,?LINE,'No nodes are availible for the service ',ServiceId,Vsn}]),
+		   {error,[?MODULE,?LINE,'No nodes are availible for the service ',ServiceId,Vsn]};
+	       NumNodes ->
+		   do_start(NodesFullfilledNeeds,?NUM_APPLICATIONS,ServiceId,Vsn,[])
+    end,
+    Result.
+
+do_start([],_,_,_,StartResult)-> % Less nodes then NodesFullfilledNeeds
+    StartResult;
+do_start(_,0,_,_,StartResult)->
+      StartResult;
+do_start([KubeleteInfo|T],NumApps,ServicesId,Vsn,Acc)->
+  %  io:format(" ~p~n",[{?MODULE,?LINE,KubeleteInfo,NumApps,ServicesId,Vsn,Acc}]),
+    IpAddr=KubeleteInfo#kubelet_info.ip_addr,
+    Port=KubeleteInfo#kubelet_info.port,
+    R=tcp:call(IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}),
+    io:format(" ~p~n",[{?MODULE,?LINE,R}]),
+    NewAcc=[R|Acc],
+    do_start(T,NumApps-1,ServicesId,Vsn,NewAcc).
+
 schedule_start(ServicesId,Vsn,NodesFullfilledNeeds)->
     [KubeleteInfo|_]=NodesFullfilledNeeds,
     IpAddr=KubeleteInfo#kubelet_info.ip_addr,

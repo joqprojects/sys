@@ -83,7 +83,35 @@ get_instances(WantedServiceStr,DnsList)->
     Reply.
 
 get_instances(WantedServiceStr,WantedVsnStr,DnsList)->
-    Reply=[DnsInfo||DnsInfo<-DnsList, {WantedServiceStr,WantedVsnStr}=:={DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}], 
+    Reply=case WantedVsnStr of
+	      latest->
+		  I1=[{DnsInfo#dns_info.vsn,DnsInfo}||DnsInfo<-DnsList, {WantedServiceStr}=:={DnsInfo#dns_info.service_id}],
+		  get_latest(I1,[]);
+	      WantedVsnStr->
+		  [DnsInfo||DnsInfo<-DnsList, {WantedServiceStr,WantedVsnStr}=:={DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}]
+	  end,
     Reply.
 
 
+get_latest([],Latest)->
+    Latest;
+get_latest([{Vsn,DnsInfo}|T],Acc) ->
+    LatestVsn=Vsn,
+    NewAcc=[DnsInfo],
+    get_2_latest(T,LatestVsn,NewAcc).
+
+get_2_latest([],_,Latest)->
+    Latest;
+get_2_latest([{Vsn,DnsInfo}|T],LatestVsn,Acc)->
+    case cmn:cmp_vsn_strings(Vsn,LatestVsn) of
+	less->
+	    NewLatestVsn=LatestVsn,
+	    NewAcc=Acc;
+	equal ->
+	    NewLatestVsn=LatestVsn,
+	    NewAcc=[DnsInfo|Acc];
+	larger ->
+	    NewLatestVsn=Vsn,
+	    NewAcc=[DnsInfo]
+    end,
+    get_2_latest(T,NewLatestVsn,NewAcc).
