@@ -43,7 +43,7 @@ stop_services([{ServiceId,Vsn}|T],DnsList)->
   %  io:format("ListWithIp,Vsn ~p~n",[{time(),?MODULE,?LINE,ListWithIp}]),
 
    R= [{IpAddr,Port,ServiceId,Vsn,rpc:cast(node(),tcp,call,[IpAddr,Port,{kubelet,stop_service,[ServiceId]}])}||{IpAddr,Port,ServiceId,Vsn}<-ListWithIp],
-  %  io:format("result stop_service ~p~n",[{?MODULE,?LINE,R}]),
+    io:format("result stop_service ~p~n",[{?MODULE,?LINE,R}]),
 
     stop_services(T,DnsList).
 						  

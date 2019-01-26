@@ -38,6 +38,8 @@ do_a_test()->
     if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
     do_add(false),
     if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}), 
+
+    timer:sleep(2500), %secure no pending processe
     if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
     do_add(false),
     if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}),   
@@ -46,21 +48,25 @@ do_a_test()->
 do_add(true)->
     ok;
 do_add(Quit) ->
-    io:format("~p~n",[{?MODULE,?LINE}]),
+ %   io:format("~p~n",[{?MODULE,?LINE}]),
     R1=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},1,1),
     R2=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,2),
     R3=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,1),
     R4=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
     R5=l_dns_2_call("adder",latest,{glurk,add,[20,22]},{"localhost",60010},2,1),
-    R6=l_dns_2_call("glurk_2",latest,{glurk,add,[20,22]},{"localhost",60010},2,1),
+    R6=l_dns_2_call("glurk_2",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
+    R7=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},5,1),
+    R8=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,5),
     case R1 of
 	[42]->
-	    io:format(" Glurk ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4,R5,R6}]),  
+%	    io:format(" Glurk ~p~n",[{?MODULE,?LINE,R1,R2,R3,R4,R5,R6}]),  
 	    
 	    [R11]=R1,
 	    [R21,R22]=R2,
 	    [R31]=R3,
 	    [R41]=R4,	    
+	    [R71]=R7,
+	    [R81,R82]=R8,
 	    io:format(">>>>>>>>>>>>>>>   Success -Erika it's working now/almost  !!!!!! Kram Paps <<<<<<<<<<<<<<<<<<<<  ~n"),
 	    io:format(" R11 ~p~n",[{?MODULE,?LINE,R11}]),
 	    io:format(" R21,R22 ~p~n",[{?MODULE,?LINE,R21,R22}]),
@@ -68,6 +74,8 @@ do_add(Quit) ->
 	    io:format(" R41 ~p~n",[{?MODULE,?LINE,R41}]),  
 	    io:format(" R5 ~p~n",[{?MODULE,?LINE,R5}]),  
 	    io:format(" R6 ~p~n",[{?MODULE,?LINE,R6}]),  
+	    io:format(" R71 ~p~n",[{?MODULE,?LINE,R71}]),  
+	    io:format(" R81,R82 ~p~n",[{?MODULE,?LINE,R81,R82}]),
 	    
 	    NewQuit=true;
 	_->
@@ -81,7 +89,14 @@ do_add(Quit) ->
 
 
     
-l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
+l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
+    Diff=InitRec-Send,
+    if	
+	Diff > 0 ->
+	    Rec=Send;
+	true->
+	    Rec=InitRec
+    end,
     Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId]}) of
 	       {error,Err}->
 		   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
@@ -90,6 +105,7 @@ l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
 		   io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId}]),
 		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId]};
 	       InstancesDnsInfo->
+		   io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 		   Parent=self(),
 		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
 		   receive
@@ -99,7 +115,14 @@ l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
 	   end,
     Result.
     
-l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
+l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
+    Diff=InitRec-Send,
+    if	
+	Diff > 0 ->
+	    Rec=Send;
+	true->
+	    Rec=InitRec
+    end,
     Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId,Vsn]}) of
 	       {error,Err}->
 		   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
@@ -108,6 +131,7 @@ l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
 		   io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
 		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
 	       InstancesDnsInfo->
+		 %  io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 		   Parent=self(),
 		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
 		   receive
@@ -117,9 +141,11 @@ l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec)->
 	   end,
     Result. 
 
-l_tcp_2_call([],{M,F,A},Parent,Send,Rec,Acc)->
-    io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,Acc}]),
-    R={error,[?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,Acc]},
+l_tcp_2_call([],{M,F,A},Parent,Send,Rec,PidList)->
+    R=rec_2_call(PidList,Rec,[]),
+    %Parent!{self(),R};
+    io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,PidList}]),
+  %  R={error,[?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,Acc]},
     Parent!{self(),R};
 
 l_tcp_2_call(_,_,Parent,0,N_rec,PidList)->
@@ -133,6 +159,8 @@ l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,Acc)->
     Parent2=self(),
     Pid=spawn(fun()->do_tcp_2_call(IpAddr_Service,Port_Service,{M,F,A},Parent2) end),
     NewAcc=[Pid|Acc],
+    io:format("~p~n",[{?MODULE,?LINE,T,{M,F,A},Parent,Send,Rec,Acc}]),
+ %   Instances=lists:join(T,[DnsInfo]),
     l_tcp_2_call(T,{M,F,A},Parent,Send-1,Rec,NewAcc).
 
 do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2)->
