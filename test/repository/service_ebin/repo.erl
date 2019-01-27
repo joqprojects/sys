@@ -16,6 +16,7 @@
 -include("kube/include/repository_data.hrl").
 -include("kube/include/dns_data.hrl").
 -include("kube/include/dns.hrl").
+-include("kube/include/tcp.hrl").
 %% --------------------------------------------------------------------
 %% --------------------------------------------------------------------
 %% Definitions
@@ -105,8 +106,10 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-				 {DnsIp,DnsPort}]),
+  if_dns:call("dns",latest,{dns,dns_register,[DnsInfo]}, 
+	      {DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT),   
+% rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
+%				 {DnsIp,DnsPort}]),
     rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
 				 {DnsIp,DnsPort}]),
     rpc:cast(node(),kubelet,dns_register,[DnsInfo]),

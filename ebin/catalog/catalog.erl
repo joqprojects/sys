@@ -14,6 +14,7 @@
 -include("kube/catalog/src/catalog_local.hrl").
 
 -include("kube/include/repository_data.hrl").
+-include("kube/include/tcp.hrl").
 -include("kube/include/dns_data.hrl").
 -include("kube/include/dns.hrl").
 %% --------------------------------------------------------------------

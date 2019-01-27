@@ -138,7 +138,7 @@ load_start_apps([dns|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre l
 load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
   % io:format("~p~n",[{?MODULE,?LINE,Module,NodeIp,NodePort}]),
     {ok,Artifact}=load_appfiles(atom_to_list(Module),latest,NodeIp,NodePort,{DnsIp,DnsPort}),
- %  io:format("~p~n",[{?MODULE,?LINE,Artifact}]),
+    io:format("~p~n",[{?MODULE,?LINE}]),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={_,_},
@@ -152,7 +152,7 @@ load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
     ok=application:set_env(Module,service_id,ServiceId),
     ok=application:set_env(Module,vsn,Vsn),
     R=application:start(Module),
-   %    io:format("~p~n",[{?MODULE,?LINE,R}]),
+       io:format("~p~n",[{?MODULE,?LINE,R}]),
     NewAcc=[{ServiceId,Vsn,R}|Acc],
     load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort}).
 
@@ -250,17 +250,20 @@ load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort})->  % VsnInput 
 	     _->
 		 ?SERVICE_EBIN
       end,   
-   % io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
-    Artifact=if_dns:call("repo",{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort}),
-    io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
+ %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
+    [Artifact]=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort},1,1),
+ %   io:format("~p~n",[{?MODULE,?LINE,Artifact}]),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,AppBinary},
 	      modules=Modules
 	     }=Artifact,
+  %  io:format("~p~n",[{?MODULE,?LINE}]),
     Appfile=filename:join(Ebin,AppFileBaseName),
     ok=file:write_file(Appfile,AppBinary),
+   % io:format("~p~n",[{?MODULE,?LINE}]),
     [file:write_file(filename:join(Ebin,ModuleName),Bin)||{ModuleName,Bin}<-Modules],
+   % io:format("~p~n",[{?MODULE,?LINE}]),
     {ok,Artifact}.
     
 %% --------------------------------------------------------------------
