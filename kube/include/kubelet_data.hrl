@@ -10,6 +10,7 @@
 	   port="not_initiaded_port",
 	   max_workers=0,
 	   zone=["house.room"],
-	   capabilities=[]	   
+	   capabilities=[],
+	   node_type=no_node_type
 	 }).
 

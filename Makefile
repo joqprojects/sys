@@ -113,6 +113,9 @@ build:
 #w201 
 	cp ebin/kubelet/* test/w201/kubelet_ebin;
 	cp ebin/lib/* test/w201/lib_ebin;
+#w202 
+	cp ebin/kubelet/* test/w202/kubelet_ebin;
+	cp ebin/lib/* test/w202/lib_ebin;
 #workers
 	cp ebin/kubelet/* test/w1/kubelet_ebin;
 	cp ebin/lib/* test/w1/lib_ebin;

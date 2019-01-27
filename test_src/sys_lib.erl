@@ -12,6 +12,7 @@
 %% Include files
 %% --------------------------------------------------------------------
 -include("kube/include/dns.hrl").
+-include("kube/include/tcp.hrl").
 -include("kube/include/dns_data.hrl").
 %% --------------------------------------------------------------------
 
@@ -52,8 +53,9 @@ do_a_test(N)->
 do_add(true,Parent)->
     Parent!{self(),[?MODULE,?LINE,ok]};
 do_add(Quit,Parent) ->
+    TimeOut=10*1000,
  %   io:format("~p~n",[{?MODULE,?LINE}]),
-    R1=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},1,1),
+    R1=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},1,1,TimeOut),
     case R1 of
 	{error,_}->
 	    io:format(" R1 ~p~n",[{?MODULE,?LINE,R1}]);
@@ -85,11 +87,11 @@ do_add(Quit,Parent) ->
 	    %[R41]=R4,
 	    io:format(" R4 ~w~n",[{?MODULE,?LINE,R4}])
     end,
-    R5=l_dns_2_call("adder",latest,{glurk,add,[20,22]},{"localhost",60010},2,1),
+    R5=l_dns_2_call("adder",latest,{glurk,add,[20,22]},{"localhost",60010},2,1,TimeOut),
     io:format(" R5 ~p~n",[{?MODULE,?LINE,R5}]),
-    R6=l_dns_2_call("glurk_2",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
+    R6=l_dns_2_call("glurk_2",latest,{adder,add,[20,22]},{"localhost",60010},2,1,TimeOut),
     io:format(" R6 ~p~n",[{?MODULE,?LINE,R6}]),   
-    R7=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},5,1),
+    R7=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},5,1,TimeOut),
     case R7 of
 	{error,_}->
 	    io:format(" R7 ~p~n",[{?MODULE,?LINE,R7}]);
@@ -118,9 +120,38 @@ do_add(Quit,Parent) ->
     end,
     do_add(NewQuit,Parent).
 
+%%----------------- Solution
+%% Observations: When calling exisitng service with undef function sometimes no response is genrated
+%% Timeout is used to sort up that
+%l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->    
+%  l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec,?TIMEOUT_TCPCLIENT).  
 
+%l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec,TimeOut)->
+%    Diff=InitRec-Send,
+ %   if	
+%	Diff > 0 ->
+%	    Rec=Send;
+%	true->
+%	    Rec=InitRec
+ %   end,
+  %  Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId]},TimeOut) of
+%	       {error,Err}->
+%		   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
+%		   {error,[?MODULE,?LINE,Err]};
+%	       []->
+%		   io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId}]),
+%		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId]};
+%	       InstancesDnsInfo->
+%		   Parent=self(),
+%		   Pid=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,TimeOut,[]) end),
+%		   rec_result(Pid)
+%	   end,
+%    Result.
     
-l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
+l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->    
+  l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec,?TIMEOUT_TCPCLIENT).
+
+l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec,TimeOut)->
     Diff=InitRec-Send,
     if	
 	Diff > 0 ->
@@ -128,95 +159,59 @@ l_dns_2_call(ServiceId,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
 	true->
 	    Rec=InitRec
     end,
-    Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId]}) of
+    Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId,Vsn]},TimeOut) of
 	       {error,Err}->
-		   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
 		   {error,[?MODULE,?LINE,Err]};
 	       []->
-		   io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId}]),
-		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId]};
-	       InstancesDnsInfo->
-	%	   io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
-		   Parent=self(),
-		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
-		   R=receive
-			 {P,R}->
-			     R
-		    % after 15*1000-> 
-		%	     R={error,[?MODULE,?LINE,'timeout',ServiceId]}
-		     end
-	   end,
-    Result.
-    
-l_dns_2_call(ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec)->
-    Diff=InitRec-Send,
-    if	
-	Diff > 0 ->
-	    Rec=Send;
-	true->
-	    Rec=InitRec
-    end,
-    Result=case tcp:call(DnsIpAddr,DnsPort,{dns,get_instances,[ServiceId,Vsn]}) of
-	       {error,Err}->
-		%   io:format(" Error ~p~n",[{?MODULE,?LINE,Err}]),
-		   {error,[?MODULE,?LINE,Err]};
-	       []->
-		 %  io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
 		   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
 	       InstancesDnsInfo->
-	%	   io:format("  ~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 		   Parent=self(),
-		   P=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,[]) end),
-		   R=receive
-			 {P,R}->
-			     R
-		 %    after 15*1000->
-		%	     R={error,[?MODULE,?LINE,'timeout',ServiceId,Vsn]}
-		     end
+		   Pid=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,TimeOut,[]) end),
+		   rec_result(Pid)		   
 	   end,
     Result. 
 
-l_tcp_2_call([],{M,F,A},Parent,Send,Rec,PidList)->
-    R=rec_2_call(PidList,Rec,[]),
-    %Parent!{self(),R};
-  %  io:format(" Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,PidList}]),
-  %  R={error,[?MODULE,?LINE,'no availible nodes ',{M,F,A},Parent,Send,Rec,Acc]},
-    Parent!{self(),R};
+rec_result(Pid)->
+    Result=receive
+	       {Pid,R}->
+		   R;
+	       Err ->
+		   rec_result(Pid)    
+	   end,
+    Result.
+    
+l_tcp_2_call([],{M,F,A},Parent,Send,Rec,TimeOut,PidList)->
+    Result=rec_2_call(PidList,Rec,TimeOut,[]),
+    Parent!{self(),Result};
 
-l_tcp_2_call(_,_,Parent,0,N_rec,PidList)->
-    R=rec_2_call(PidList,N_rec,[]),
-    Parent!{self(),R};
+l_tcp_2_call(_,_,Parent,0,Rec,TimeOut,PidList)->
+    Result=rec_2_call(PidList,Rec,TimeOut,[]),
+    Parent!{self(),Result};
 
-l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,Acc)->
+l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,TimeOut,Acc)->
     IpAddr_Service=DnsInfo#dns_info.ip_addr,
     Port_Service=DnsInfo#dns_info.port,
- %   io:format("  ~p~n",[{?MODULE,?LINE,M,F,A,IpAddr_Service,Port_Service}]),
     Parent2=self(),
-    Pid=spawn_link(fun()->do_tcp_2_call(IpAddr_Service,Port_Service,{M,F,A},Parent2) end),
+    Pid=spawn_link(fun()->do_tcp_2_call(IpAddr_Service,Port_Service,{M,F,A},Parent2,TimeOut) end),
     NewAcc=[Pid|Acc],
- %   io:format("~p~n",[{?MODULE,?LINE,T,{M,F,A},Parent,Send,Rec,Acc}]),
- %   Instances=lists:join(T,[DnsInfo]),
-    l_tcp_2_call(T,{M,F,A},Parent,Send-1,Rec,NewAcc).
+    l_tcp_2_call(T,{M,F,A},Parent,Send-1,Rec,TimeOut,NewAcc).
 
-do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2)->
+do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2,TimeOut)->
+    Result=tcp:call(IpAddr,Port,{M,F,A},TimeOut), 
+    Parent2!{self(),Result}.
 
-    R=tcp:call(IpAddr,Port,{M,F,A},5*1000),   % glurk what to do with timeout as a parameter?
- 
-    Parent2!{self(),R}.
-
-rec_2_call(PidList,0,Acc)->
-   % [erlang:exit(Pid,die)||Pid<-PidList],
+rec_2_call(_PidList,0,_,Acc)->
     Acc;
-rec_2_call(PidList,Num,Acc)->
+rec_2_call(PidList,Num,TimeOut,Acc)->
     receive
 	{_Pid,Result}->
 	    NewAcc=[Result|Acc]
-    after 6*1000 ->
+    after TimeOut ->
 	    NewAcc=Acc
     end,
-    rec_2_call(PidList,Num-1,NewAcc).
+    rec_2_call(PidList,Num-1,TimeOut,NewAcc).
 
-%% ----
+%% ****************************************************************************************************'
 
 
 %% --------------------------------------------------------------------
@@ -267,7 +262,6 @@ tcp_call(IpAddr,Port,{M,F,A},Parent,N_send,N_rec,Acc)->
     Pid=spawn(fun()->do_tcp_call(IpAddr,Port,{M,F,A},Parent2) end),
     NewAcc=[Pid|Acc],
     tcp_call(IpAddr,Port,{M,F,A},Parent,N_send-1,N_rec,NewAcc).
-
 
 do_tcp_call(IpAddr,Port,{M,F,A},Parent2)->
     timer:sleep(100),

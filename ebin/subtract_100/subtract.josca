@@ -4,7 +4,7 @@
 {vsn, "1.0.0" }.
 {exported_services,[{"subtract","1.0.0"}]}.
 {num_instances,2}.
-{zone,["stockholm.flat.room_joq.w10"]}.
+{zone,["stockholm.flat.room_joq.w202"]}.
 {geo_red,[]}.
 {needed_capabilities,[]}.
 {dependencies ,[]}.

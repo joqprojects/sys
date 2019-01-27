@@ -327,7 +327,8 @@ handle_cast({node_register,KubeletInfo}, State) ->
     TimeStamp=erlang:now(),
     NewKubeletInfo=KubeletInfo#kubelet_info{time_stamp=TimeStamp},
     #kubelet_info{time_stamp=_,ip_addr=IpAddr,port=Port,service_id=ServiceId,vsn=Vsn,
-		  max_workers=_MaxWorkers,zone=_Zone,capabilities=_Capabilities
+		  max_workers=_MaxWorkers,zone=_Zone,capabilities=_Capabilities,
+		  node_type=_
 		 }=KubeletInfo,
 %    io:format("~p~n",[{?MODULE,?LINE,State#state.node_list}]),
     X1=[X||X<-State#state.node_list,false==({IpAddr,Port,ServiceId,Vsn}==

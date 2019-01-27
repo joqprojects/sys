@@ -171,12 +171,15 @@ schedule_start(ServicesId,Vsn,NodesFullfilledNeeds)->
 %% --------------------------------------------------------------------
 get_nodes_fullfills_needs(WantedZone,WantedCapabilities,AvailibleNodes)->
     % Which nodes is in needed zone
+    Workers=[X_Node||X_Node<-AvailibleNodes,
+		     X_Node#kubelet_info.node_type=:=worker_node],
+%    io:format("Workers ~p~n",[{?MODULE,?LINE,Workers}]), 
     RightZone = case WantedZone of
 		    []->
-			AvailibleNodes;
+			Workers;
 		    Zone ->
 		%	io:format("Zone=  ~p~n",[{?MODULE,?LINE,Zone}]), 
-			[Node||Node<-AvailibleNodes,
+			[Node||Node<-Workers,
 				Node#kubelet_info.zone=:=Zone]
 		end,
    % io:format("RightZone  ~p~n",[{?MODULE,?LINE,RightZone}]),    
