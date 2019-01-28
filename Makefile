@@ -116,6 +116,12 @@ build:
 #w202 
 	cp ebin/kubelet/* test/w202/kubelet_ebin;
 	cp ebin/lib/* test/w202/lib_ebin;
+#system_node
+	cp ebin/kubelet/* test/system_node/kubelet_ebin;
+	cp ebin/lib/* test/system_node/lib_ebin;
+	cp ebin/dns/* test/system_node/kubelet_ebin;
+	cp ebin/repository/* test/system_node/kubelet_ebin;
+	cp ebin/catalog/* test/system_node/kubelet_ebin;
 #workers
 	cp ebin/kubelet/* test/w1/kubelet_ebin;
 	cp ebin/lib/* test/w1/lib_ebin;

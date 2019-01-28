@@ -106,10 +106,10 @@ dependencies(I)->
 start_order(Name,Vsn,State)->
   %  io:format("~p~n",[{?MODULE,?LINE,Name,Vsn}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    Result=case if_dns:call("catalog",{catalog,read,[Name,Vsn]},{DnsIp,DnsPort}) of
+    Result=case if_dns:call("catalog",latest,{catalog,read,[Name,Vsn]},{DnsIp,DnsPort},1,1) of
 	       {error,Err}->
 		   {error,[?MODULE,?LINE,Err]};
-	       {ok,_,JoscaInfo}->
+	       [{ok,_,JoscaInfo}]->
 		   Acc=case lists:keyfind(type,1,JoscaInfo) of 
 			   {type,application}->
 			       [];
@@ -120,7 +120,9 @@ start_order(Name,Vsn,State)->
 		  % io:format("~p~n",[{?MODULE,?LINE,Acc}]),
 		   {dependencies,JoscaFiles}=lists:keyfind(dependencies,1,JoscaInfo),
 		  % io:format("~p~n",[{?MODULE,?LINE,JoscaFiles}]),
-		   dfs(JoscaFiles,Acc,State)
+		   dfs(JoscaFiles,Acc,State);
+	       Err ->
+		   {error,[?MODULE,?LINE,Err]}
 	   end,
     Result.
 

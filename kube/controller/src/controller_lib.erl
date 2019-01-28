@@ -50,9 +50,12 @@ stop_services([{ServiceId,Vsn}|T],DnsList,State)->
   %  io:format("result stop_service ~p~n",[{?MODULE,?LINE,R1}]),
    
     {dns,DnsIpAddr,DnsPort}=State#state.dns_addr,
-    R2=[{rpc:cast(node(),if_dns,call,["controller",{controller,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
-      rpc:cast(node(),if_dns,call,["dns",{dns,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
-      rpc:cast(node(),tcp,call,[IpAddr,Port,{dns,de_dns_register,[DnsInfo]}])}||{IpAddr,Port,_,_,DnsInfo}<-ListWithIp],
+    R2=[{if_dns:call("controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort},1,0),
+	 if_dns:call("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort},1,0),
+	 rpc:cast(node(),tcp,call,[IpAddr,Port,{dns,de_dns_register,[DnsInfo]}])}||{IpAddr,Port,_,_,DnsInfo}<-ListWithIp],
+ %   R2=[{rpc:cast(node(),if_dns,call,["controller",{controller,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
+  %    rpc:cast(node(),if_dns,call,["dns",{dns,de_dns_register,[DnsInfo]},{DnsIpAddr,DnsPort}]),
+   %   rpc:cast(node(),tcp,call,[IpAddr,Port,{dns,de_dns_register,[DnsInfo]}])}||{IpAddr,Port,_,_,DnsInfo}<-ListWithIp],
     io:format("result stop_service ~p~n",[{?MODULE,?LINE,ServiceId,Vsn,R2}]),
     stop_services(T,DnsList,State).
 						  
@@ -104,10 +107,11 @@ start_services([],_Nodes,_)->
 start_services([{ServiceId,Vsn}|T],Nodes,State)->
  %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,Nodes}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    case if_dns:call("catalog",{catalog,read,[ServiceId,Vsn]},{DnsIp,DnsPort}) of
+    case if_dns:call("catalog",latest,{catalog,read,[ServiceId,Vsn]},{DnsIp,DnsPort},1,1) of
 	{error,Err}->
-	    io:format("~p~n",[{?MODULE,?LINE,'error',Err}]);
-	{ok,_,JoscaInfo}->
+	    io:format("~p~n",[{?MODULE,?LINE,'error',Err}]),
+	    {error,[?MODULE,?LINE,Err]};
+	[{ok,_,JoscaInfo}]->
 %	    io:format("~p~n",[{?MODULE,?LINE,JoscaInfo}]),
 	    {zone,WantedZone}=lists:keyfind(zone,1,JoscaInfo),
 	    {needed_capabilities,WantedCapabilities}=lists:keyfind(needed_capabilities,1,JoscaInfo),
@@ -119,7 +123,11 @@ start_services([{ServiceId,Vsn}|T],Nodes,State)->
 		NodesFullfilledNeeds->
 		    R=schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,?NUM_APPLICATIONS),
 		    io:format("~p~n",[{?MODULE,?LINE,'Service start result =',R,ServiceId,Vsn}])
-	    end
+	    end;
+	Err ->
+	    io:format("~p~n",[{?MODULE,?LINE,'error',Err}]),
+	     {error,[?MODULE,?LINE,Err]}
+	    
     end,
     start_services(T,Nodes,State).
 

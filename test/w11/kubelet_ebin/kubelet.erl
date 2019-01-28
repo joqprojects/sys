@@ -200,7 +200,7 @@ handle_call({stop_service,ServiceId}, _From, State) ->
 		       ok->
 			   ok;
 		       Err->
-			   NewState=State,
+			   io:format("Error ~p~n",[{?MODULE,?LINE,'stopping service',ServiceId,Err}]),
 			   {error,[?MODULE,?LINE,Err,ServiceId]}
 		   end
 	   end,

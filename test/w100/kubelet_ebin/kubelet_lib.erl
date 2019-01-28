@@ -79,7 +79,7 @@ load_start_app(ServiceId,VsnInput,NodeIp,NodePort,State)->
 %% Returns: non
 %% --------------------------------------------------------------------
 load_start_pre_loaded_apps(PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort})->
-  %  io:format("~p~n",[{?MODULE,?LINE,PreLoadApps}]),
+    io:format("~p~n",[{?MODULE,?LINE,PreLoadApps}]),
     load_start_apps(PreLoadApps,NodeIp,NodePort,[],{DnsIp,DnsPort}).
 load_start_apps([],_,_,StartResult,_)->
     StartResult;
@@ -164,7 +164,7 @@ load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
 stop_unload_app(DnsInfo,State)->
     #dns_info{service_id=ServiceId,vsn=Vsn}=DnsInfo,
     {dns,DnsIp,DnsPort}=State#state.dns_addr, 
-    Artifact=if_dns:call("repo",{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort}),    
+    [Artifact]=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort},1,1),    
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,_},

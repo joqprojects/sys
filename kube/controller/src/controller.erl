@@ -183,14 +183,17 @@ handle_call({add,AppId,Vsn}, _From, State) ->
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
     Reply=case lists:keyfind({AppId,Vsn},1,State#state.application_list) of
 	      false->
-		  case if_dns:call("catalog",{catalog,read,[AppId,Vsn]}, {DnsIp,DnsPort}) of
+		  case if_dns:call("catalog",latest,{catalog,read,[AppId,Vsn]},{DnsIp,DnsPort},1,1) of
 		      {error,Err}->
 			  NewState=State,
 			  {error,[?MODULE,?LINE,AppId,Vsn,Err]};
-		      {ok,_,JoscaInfo}->
+		      [{ok,_,JoscaInfo}]->
 			  NewAppList=[{{AppId,Vsn},JoscaInfo}|State#state.application_list],
 			  NewState=State#state{application_list=NewAppList},
-			  ok
+			  ok;
+		      Err ->
+			  NewState=State,
+			  {error,[?MODULE,?LINE,AppId,Vsn,Err]}
 		  end;
 	      _->
 		  NewState=State,
