@@ -116,11 +116,9 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
+%    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),   
+ %   if_dns:cast("controller",{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),
+  %  rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Service Started ~p~n",[{?MODULE, ?LINE}]),
     {ok, #state{dbase_id=DbaseId,dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.   
@@ -159,10 +157,8 @@ handle_call({delete,Name,Vsn}, _From, State) ->
 handle_call({heart_beat}, _From, State) ->
     DnsInfo=State#state.dns_info,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),   
+    if_dns:cast("controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),
     rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     Reply=ok,
    {reply, Reply, State};

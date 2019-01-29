@@ -216,8 +216,8 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 		  ServicesToStop=[{X_ServiceId,X_Vsn}||{X_ServiceId,X_Vsn}<-AppIdServices,
 						   false==lists:member({X_ServiceId,X_Vsn},AllServices)],
 		 % io:format("ServicesToStop ~p~n",[{time(),ServicesToStop,?MODULE,?LINE}]),
-		  rpc:call(node(),controller_lib,stop_services,[ServicesToStop,State#state.dns_list,State]),
-		  NewState=State#state{application_list=NewAppList},
+		  NewDnsList=rpc:call(node(),controller_lib,stop_services,[ServicesToStop,State#state.dns_list,State]),
+		  NewState=State#state{application_list=NewAppList,dns_list=NewDnsList},
 		  ok
 	  end,
     {reply, Reply,NewState};
@@ -248,14 +248,16 @@ handle_call({all_nodes},_From, State) ->
 %% --------------------------------------------------------------------
 
 handle_call({heart_beat}, _From, State) ->
+
     DnsInfo=State#state.dns_info,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
   %  rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
 %		 {DnsIp,DnsPort}]),
-    if_dns:call("controller",latest,{dns,dns_register,[DnsInfo]}, 
-		{DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT), 
+    rpc:cast(node(),if_dns,call,["controller",latest,{dns,dns_register,[DnsInfo]}, 
+		{DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT]), 
 
    rpc:call(node(),kubelet,dns_register,[State#state.dns_info]),
+
     Now=erlang:now(),
     NewDnsList=[X_DnsInfo||X_DnsInfo<-State#state.dns_list,
 		      (timer:now_diff(Now,X_DnsInfo#dns_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
@@ -264,10 +266,25 @@ handle_call({heart_beat}, _From, State) ->
 		      (timer:now_diff(Now,KubeletInfo#kubelet_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
     
     NewState=State#state{dns_list=NewDnsList,node_list=NewNodeList},
-  %  io:format(" ~p~n",[{time(),'before campaign',?MODULE,?LINE}]),
-    rpc:call(node(),controller,campaign,[]),
+    io:format("DnsList ~p~n",[{?MODULE,?LINE,State#state.dns_list}]),
+    io:format("NewDnsList ~p~n",[{?MODULE,?LINE,NewDnsList}]),
+  %  rpc:call(node(),controller,campaign,[]),
    % io:format(" ~p~n",[{time(),'after campaign',?MODULE,?LINE}]),   
-Reply=ok,
+%campagne
+    NeededServices=rpc:call(node(),controller_lib,needed_services,[NewState#state.application_list,NewState]),
+    io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
+    MissingServices=rpc:call(node(),controller_lib,missing_services,[NeededServices,NewState#state.dns_list]),
+    case MissingServices of
+	[]->
+	    io:format("System is in preferred state  ~p~n",[{date(),time()}]),
+	    	    io:format("Availible services  ~p~n",[{NeededServices}]);
+	MissingServices->
+	    io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
+    end,
+    rpc:call(node(),controller_lib,start_services,[MissingServices,NewState#state.node_list,NewState]),
+
+
+    Reply=ok,
    {reply, Reply,NewState};
     
 
@@ -294,7 +311,7 @@ handle_call(Request, From, State) ->
 %% --------------------------------------------------------------------
 handle_cast({campaign}, State) ->
     NeededServices=rpc:call(node(),controller_lib,needed_services,[State#state.application_list,State]),
-%    io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
+   io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
     MissingServices=rpc:call(node(),controller_lib,missing_services,[NeededServices,State#state.dns_list]),
     case MissingServices of
 	[]->

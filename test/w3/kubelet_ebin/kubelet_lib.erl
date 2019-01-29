@@ -57,6 +57,7 @@ de_dns_register(DnsInfo,DnsList)->
 %% Returns: non
 %% --------------------------------------------------------------------
 load_start_app(ServiceId,VsnInput,NodeIp,NodePort,State)->
+    io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput,NodeIp,NodePort}]),
     Module=list_to_atom(ServiceId),
     {dns,DnsIp,DnsPort}=State#state.dns_addr, 
     {ok,Artifact}=load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort}),
@@ -71,7 +72,9 @@ load_start_app(ServiceId,VsnInput,NodeIp,NodePort,State)->
     ok=application:set_env(Module,vsn,Vsn),
     ok=application:set_env(Module,dns_ip_addr,DnsIp),
     ok=application:set_env(Module,dns_port,DnsPort),
-    R=application:start(Module).    
+    R=application:start(Module),
+    io:format("~p~n",[{?MODULE,?LINE,ServiceId,R}]),
+    R.    
 
 %% --------------------------------------------------------------------
 %% Function: 
@@ -80,6 +83,7 @@ load_start_app(ServiceId,VsnInput,NodeIp,NodePort,State)->
 %% --------------------------------------------------------------------
 load_start_pre_loaded_apps(PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort})->
     io:format("~p~n",[{?MODULE,?LINE,PreLoadApps}]),
+    timer:sleep(10*1000),
     load_start_apps(PreLoadApps,NodeIp,NodePort,[],{DnsIp,DnsPort}).
 load_start_apps([],_,_,StartResult,_)->
     StartResult;
@@ -136,7 +140,7 @@ load_start_apps([dns|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre l
     load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
     
 load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
-  % io:format("~p~n",[{?MODULE,?LINE,Module,NodeIp,NodePort}]),
+   io:format("~p~n",[{?MODULE,?LINE,Module,NodeIp,NodePort}]),
     {ok,Artifact}=load_appfiles(atom_to_list(Module),latest,NodeIp,NodePort,{DnsIp,DnsPort}),
     io:format("~p~n",[{?MODULE,?LINE}]),
     #artifact{service_id=ServiceId,
@@ -152,7 +156,7 @@ load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
     ok=application:set_env(Module,service_id,ServiceId),
     ok=application:set_env(Module,vsn,Vsn),
     R=application:start(Module),
-       io:format("~p~n",[{?MODULE,?LINE,R}]),
+    io:format("~p~n",[{?MODULE,?LINE,Module,R}]),
     NewAcc=[{ServiceId,Vsn,R}|Acc],
     load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort}).
 
@@ -162,6 +166,7 @@ load_start_apps([Module|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 stop_unload_app(DnsInfo,State)->
+     io:format("~p~n",[{?MODULE,?LINE,DnsInfo}]),
     #dns_info{service_id=ServiceId,vsn=Vsn}=DnsInfo,
     {dns,DnsIp,DnsPort}=State#state.dns_addr, 
     [Artifact]=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort},1,1),    
@@ -191,8 +196,10 @@ stop_unload_app(DnsInfo,State)->
     Appfile=filename:join(Ebin,AppFileBaseName),
     ok=file:delete(Appfile),
     DeleteResult=[file:delete(filename:join(Ebin,ModuleName))||{ModuleName,_}<-Modules], 
-    rpc:cast(node(),if_dns,call,["dns",{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
+   % if_dns:call("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0),
+   % if_dns:call("controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0),
+   rpc:cast(node(),if_dns,call,["dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
+ %  rpc:cast(node(),if_dns,call,["controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
     
     Reply=case [Y||Y<-DeleteResult,false=={Y=:=ok}] of
 	      []->

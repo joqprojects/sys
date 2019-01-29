@@ -39,21 +39,21 @@ do_a_test()->
 do_a_test(0)->
     ok;
 do_a_test(N)->
-    if_dns:call("controller",{controller,add,["mymath","1.0.0"]},{"localhost",60010}),  
+    if_dns:call("controller",latest,{controller,add,["mymath","1.0.0"]},{"localhost",60010},1,0),  
     Self=self(),
     _Pid=spawn(fun()->do_add(false,Self) end),
     receive
 	{_,R}->
 	    io:format("  ~p~n",[{?MODULE,?LINE,R}])
     end,
-    if_dns:call("controller",{controller,remove,["mymath","1.0.0"]},{"localhost",60010}), 
+    if_dns:call("controller",latest,{controller,remove,["mymath","1.0.0"]},{"localhost",60010},1,0), 
     do_a_test(N-1).
 
 
 do_add(true,Parent)->
     Parent!{self(),[?MODULE,?LINE,ok]};
 do_add(Quit,Parent) ->
-    TimeOut=10*1000,
+    TimeOut=5*1000,
  %   io:format("~p~n",[{?MODULE,?LINE}]),
     R1=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},1,1,TimeOut),
     case R1 of
@@ -63,7 +63,7 @@ do_add(Quit,Parent) ->
 	%    [R11]=R1,
 	    io:format(" R1 ~w~n",[{?MODULE,?LINE,R1}])
     end,	    
-    R2=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,2),
+    R2=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,2,TimeOut),
     case R2 of
 	{error,_}->
 	    io:format(" R2 ~p~n",[{?MODULE,?LINE,R2}]);
@@ -71,7 +71,7 @@ do_add(Quit,Parent) ->
 	   % [R21,R22]=R2,
 	    io:format(" R2 ~w~n",[{?MODULE,?LINE,R2}])
     end,
-    R3=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,1),
+    R3=l_dns_2_call("adder","1.0.0",{adder,add,[20,22]},{"localhost",60010},2,1,TimeOut),
     case R3 of
 	{error,_}->
 	    io:format(" R3 ~p~n",[{?MODULE,?LINE,R3}]);
@@ -79,7 +79,7 @@ do_add(Quit,Parent) ->
 	   % [R31]=R3,
 	    io:format(" R3 ~w~n",[{?MODULE,?LINE,R3}])
     end,
-    R4=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,1),
+    R4=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,1,TimeOut),
     case R4 of
 	{error,_}->
 	    io:format(" R4 ~p~n",[{?MODULE,?LINE,R4}]);
@@ -99,7 +99,7 @@ do_add(Quit,Parent) ->
 	 %   [R71]=R7,
 	    io:format(" R7 ~w~n",[{?MODULE,?LINE,R7}])
     end,
-    R8=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,5),
+    R8=l_dns_2_call("adder",latest,{adder,add,[20,22]},{"localhost",60010},2,5,TimeOut),
     case R8 of
 	{error,_}->
 	    io:format(" R8 ~p~n",[{?MODULE,?LINE,R8}]);

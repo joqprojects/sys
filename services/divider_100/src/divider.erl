@@ -99,10 +99,8 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
+    rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
     rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     {ok, #state{dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.   
@@ -126,10 +124,8 @@ handle_call({divi,A,B}, _From, State) ->
 handle_call({heart_beat}, _From, State) ->
     DnsInfo=State#state.dns_info,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},
-		 {DnsIp,DnsPort}]),
+    rpc:cast(node(),if_dns,call,["dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
+    rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
     rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
    % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
     Reply=ok,

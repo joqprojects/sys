@@ -34,132 +34,127 @@ call(ServiceId,{M,F,A},{DnsIp,DnsPort})->
     Vsn=latest,
     TimeOut=?TIMEOUT_TCPCLIENT,
     Send=1,
-    InitRec=1,
-    call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,InitRec,TimeOut).
+    Rec=1,
+    call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,Rec,TimeOut).
 
 
-call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,InitRec)->    
+call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,Rec)->    
  % io:format(" ~p~n",[{?MODULE,?LINE,ServiceId,M,F,A}]),
-    call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,InitRec,?TIMEOUT_TCPCLIENT).
+    call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,Rec,?TIMEOUT_TCPCLIENT).
 
-call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,InitRec,TimeOut)->
-  %  io:format(" ~p~n",[{?MODULE,?LINE,ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,InitRec,TimeOut}]),
-    Diff=InitRec-Send,
-    if	
-	Diff > 0 ->
-	    Rec=Send;
-	true->
-	    Rec=InitRec
-    end,
+call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send,Rec,TimeOut)->
+  %  io:format(" ~p~n",[{?MODULE,?LINE,ServiceId,Vsn,{M,F,A},{DnsIpAddr,DnsPort},Send,Rec,TimeOut}]),
     Result=case ServiceId of
-	      "dns"->
-		  tcp:call(DnsIp,DnsPort,{M,F,A},TimeOut);
-	      _->
-		  case tcp:call(DnsIp,DnsPort,{dns,get_instances,[ServiceId,Vsn]},TimeOut) of
-		      {error,Err}->
-			  {error,[?MODULE,?LINE,Err]};
-		      []->
+	       "dns"->
+		   PidList=tcp_call([{DnsIp,DnsPort}],{M,F,A},Send,TimeOut,[]),
+		   tcp_rec(PidList,Rec,TimeOut,[]);
+	       _->
+		   PidList=tcp_call([{DnsIp,DnsPort}],{dns,get_instances,[ServiceId,Vsn]},1,TimeOut,[]),
+		   case tcp_rec(PidList,1,TimeOut,[]) of
+		       [{error,Err}]->
+			   {error,[?MODULE,?LINE,Err]};
+		       []->
 			  {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
-		      InstancesDnsInfo->
-			  Parent=self(),
-			  Pid=spawn(fun()->l_tcp_2_call(InstancesDnsInfo,{M,F,A},Parent,Send,Rec,TimeOut,[]) end),
-			  rec_result(Pid)		   
+		       [InstancesDnsInfo]->
+			   IpAddresses_Ports=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port}||DnsInfo<-InstancesDnsInfo],
+			   Diff=Rec-Send,
+			  ListResults=if	
+					  Diff>0 ->
+					      Rec=Send,
+					      PidList=tcp_call(IpAddresses_Ports,{M,F,A},Send,TimeOut,[]),
+					      tcp_rec(PidList,Rec,TimeOut,[]);
+					  Diff =:=0 ->
+					      PidList=tcp_call(IpAddresses_Ports,{M,F,A},Send,TimeOut,[]),
+					      tcp_rec(PidList,Rec,TimeOut,[]);
+					  Diff<0 -> 
+					      PidList=tcp_call(IpAddresses_Ports,{M,F,A},Send,TimeOut,[]),
+					      tcp_rec(PidList,Rec,TimeOut,[])
+				      end,
+			  ListResults
 		  end
-	  end,
+	   end,
     Result. 
 
-rec_result(Pid)->
-    Result=receive
-	       {Pid,R}->
-		   R;
-	       Err ->
-		   rec_result(Pid)    
-	   end,
-    Result.
-    
-l_tcp_2_call([],{M,F,A},Parent,Send,Rec,TimeOut,PidList)->
-    Result=rec_2_call(PidList,Rec,TimeOut,[]),
-    Parent!{self(),Result};
-
-l_tcp_2_call(_,_,Parent,0,Rec,TimeOut,PidList)->
-    Result=rec_2_call(PidList,Rec,TimeOut,[]),
-    Parent!{self(),Result};
-
-l_tcp_2_call([DnsInfo|T],{M,F,A},Parent,Send,Rec,TimeOut,Acc)->
-    IpAddr_Service=DnsInfo#dns_info.ip_addr,
-    Port_Service=DnsInfo#dns_info.port,
-    Parent2=self(),
-    Pid=spawn_link(fun()->do_tcp_2_call(IpAddr_Service,Port_Service,{M,F,A},Parent2,TimeOut) end),
+tcp_call(_,_,0,_,PidList)->
+    PidList;
+tcp_call([{IpAddr,Port}|T],{M,F,A},Send,TimeOut,Acc) ->
+    ClientPid=self(),
+    Pid=spawn(tcp,call,[ClientPid,IpAddr,Port,{M,F,A},TimeOut]),
     NewAcc=[Pid|Acc],
-    l_tcp_2_call(T,{M,F,A},Parent,Send-1,Rec,TimeOut,NewAcc).
+    NewT=[T|{IpAddr,Port}],
+    tcp_call(NewT,{M,F,A},Send-1,TimeOut,NewAcc). 
 
-do_tcp_2_call(IpAddr,Port,{M,F,A},Parent2,TimeOut)->
-    Result=tcp:call(IpAddr,Port,{M,F,A},TimeOut), 
-    Parent2!{self(),Result}.
-
-rec_2_call(_PidList,0,_,Acc)->
-    Acc;
-rec_2_call(PidList,Num,TimeOut,Acc)->
+tcp_rec(PidList,0,TimeOut,ListResults)->
+    clean_up(PidList,TimeOut),
+    ListResults;
+tcp_rec([],_,_,ListResults) ->
+    ListResults;
+tcp_rec(PidList,Rec,TimeOut,Acc)->
     receive
-	{_Pid,Result}->
-	    NewAcc=[Result|Acc]
-    after TimeOut ->
-	    NewAcc=Acc
+	{Pid,result,Result}->
+	    NewPidList=lists:delete(Pid,PidList),
+	    NewAcc=[Result|Acc],
+	    io:format("~p~n",[{?MODULE,?LINE,Result,NewPidList}])
+    after TimeOut+2000->
+	    NewPidList=PidList,
+	    NewAcc=[{error,[?MODULE,?LINE,'timeout']}|Acc]
     end,
-    rec_2_call(PidList,Num-1,TimeOut,NewAcc).
+    tcp_rec(NewPidList,Rec-1,TimeOut,NewAcc).
+	    
+
+clean_up(PidList,TimeOut)->
+    ClientPid=self(),
+    [Pid!{ClientPid,close}||Pid<-PidList],
+    empty_queue(false,TimeOut).
+
+empty_queue(true,_)->
+    ok;
+empty_queue(false,TimeOut)->
+    receive
+	{_,_}->
+	    Quit=false
+    after TimeOut ->
+	    Quit=true
+    end,
+    empty_queue(Quit,TimeOut).
 
 
 %% --------------------------------------------------------------------
-%% Function: 
-%% Description:
-%% Returns: non
-%% --------------------------------------------------------------------
+%% Function: fun/x
+%% Description: fun x skeleton 
+%% Returns:ok|error
+%% ------------------------------------------------------------------
+cast(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},Send)->
+    Result=case ServiceId of
+	"dns"->
+		   tcp:cast(DnsIp,DnsPort,{M,F,A});
+	       _->
+		   PidList=tcp_call([{DnsIp,DnsPort}],{dns,get_instances,[ServiceId,Vsn]},1,?TIMEOUT_TCPCLIENT,[]),
+		   io:format("~p~n",[{?MODULE,?LINE,PidList}]),
+		   InstancesGlurk=tcp_rec(PidList,1,?TIMEOUT_TCPCLIENT,[]),
+		   io:format("~p~n",[{?MODULE,?LINE,InstancesGlurk}]),
+		   case InstancesGlurk of
+		       [{error,Err}]->
+			   {error,[?MODULE,?LINE,Err]};
+		       [[]]->
+			   io:format("Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
+			  {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
+		       [InstancesDnsInfo]->
+			   io:format("~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
+			   IpAddresses_Ports=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port}||DnsInfo<-InstancesDnsInfo],
+			   tcp_cast(IpAddresses_Ports,{M,F,A},Send,[]);		   
+		       Err ->
+			   io:format("Error ~p~n",[{?MODULE,?LINE,Err}]),
+			   {error,[?MODULE,?LINE,Err]}
+		   end
+	   end,
+    Result. 
 
-glurk_call(ServiceStr,{M,F,A},{DnsIp,DnsPort},SenderInfo)->
-   % io:format(" ~p~n",[{?MODULE,?LINE,ServiceStr,M,F,A},SenderInfo]),
-    Reply=case ServiceStr of
-	      "dns"->
-		  tcp:call(DnsIp,DnsPort,{M,F,A},SenderInfo);
-	      _->
-		  Instances=tcp:call(DnsIp,DnsPort,{dns,get_instances,[ServiceStr]},SenderInfo),
-		  case Instances of
-		      []->
-			  {error,[?MODULE,?LINE,'no service found',ServiceStr,SenderInfo]};
-		      {error,Err}->
-			  {error,[?MODULE,?LINE,Err,SenderInfo]};
-		      %->
-		      [DnsInfo|_]->
-			  IpAddr=DnsInfo#dns_info.ip_addr,
-			  Port=DnsInfo#dns_info.port,
-			  tcp:call(IpAddr,Port,{M,F,A},SenderInfo)
-		  end
-	  end,
-    Reply.
 
-glurk_call(ServiceStr,{M,F,A},{DnsIp,DnsPort})->
-   % io:format(" ~p~n",[{?MODULE,?LINE,ServiceStr,M,F,A}]),
-    Reply=case ServiceStr of
-	      "dns"->
-		  rpc:call(node(),tcp,call,[DnsIp,DnsPort,{M,F,A}]);
-	      _->
-		  Instances=rpc:call(node(),tcp,call,[DnsIp,DnsPort,{dns,get_instances,[ServiceStr]}]),
-		  case Instances of
-		      []->
-			  {error,[?MODULE,?LINE,'no service found',ServiceStr]};
-		      {error,Err}->
-			  {error,[?MODULE,?LINE,Err]};
-		      %->
-		      [DnsInfo|_]->
-			  IpAddr=DnsInfo#dns_info.ip_addr,
-			  Port=DnsInfo#dns_info.port,
-			  tcp:call(IpAddr,Port,{M,F,A})
-		  end
-	  end,
-    Reply.
-    
-%% --------------------------------------------------------------------
-%% Function: 
-%% Description:
-%% Returns: non
-%% --------------------------------------------------------------------
-
+tcp_cast(_,_,0,CastResult)->
+    CastResult;
+tcp_cast([{IpAddr,Port}|T],{M,F,A},Send,Acc) ->
+    R=tcp:cast(IpAddr,Port,{M,F,A}),
+    NewAcc=[R|Acc],
+    NewT=[T|{IpAddr,Port}],
+    tcp_cast(NewT,{M,F,A},Send-1,NewAcc). 

@@ -120,17 +120,23 @@ init([]) ->
 			      capabilities=Capabilities,
 			      node_type=NodeType
 			     },    
-    _Result=rpc:call(node(),kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
-  %  StartedApps=[{ServiceId_X,Vsn_X}||{ServiceId_X,Vsn_X,ok}<-Result],
-    {ok, LSock} = gen_tcp:listen(NodePort,?SERVER_SETUP),
+ 
+
+   {ok, LSock} = gen_tcp:listen(NodePort,?SERVER_SETUP),
     Workers=init_workers(LSock,MaxWorkers,[]), % Glurk remove?
+
+   spawn(kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
+%_Result=rpc:call(node(),kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
+  %  StartedApps=[{ServiceId_X,Vsn_X}||{ServiceId_X,Vsn_X,ok}<-Result],
+
 
     %------ send info to controller
     
     SenderInfo=#sender_info{ip_addr=NodeIp,
 			    port=NodePort,
 			    module=?MODULE,line=?LINE},
-    rpc:cast(node(),if_dns,call,["controller",{controller,node_register,[KubeletInfo]},{DnsIp,DnsPort}]),
+  %  if_dns:cast("controller",latest,{controller,node_register,[KubeletInfo]},{DnsIp,DnsPort},1),
+ 
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Started Service  ~p~n",[{?MODULE}]),
     {ok, #state{kubelet_info=KubeletInfo,
@@ -219,9 +225,9 @@ handle_call({heart_beat}, _From, State) ->
     NodeIp=NodeInfo#kubelet_info.ip_addr,
     NodePort=NodeInfo#kubelet_info.port,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    [rpc:cast(node(),if_dns,call,["controller",{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort}])||DnsInfo<-NewDnsList],
+  %  [rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0])||DnsInfo<-NewDnsList],
     % Register node
-    rpc:cast(node(),if_dns,call,["controller",{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort}]),
+    if_dns:cast("controller",latest,{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort},1),
     NewState=State#state{dns_list=NewDnsList},
     Reply=ok,
    {reply, Reply, NewState};
@@ -375,13 +381,13 @@ start_worker(ParentPid,LSock)->
 			[{M,F,A},?KEY_MSG]->
 			    Reply=rpc:call(node(),M,F,A),
 			    gen_tcp:send(Socket,term_to_binary(Reply));
-			[{call,{M,F,A}},?KEY_MSG]->
+			[call,{M,F,A},?KEY_MSG]->
 			    Reply=rpc:call(node(),M,F,A),
 			    gen_tcp:send(Socket,term_to_binary(Reply));
-			[{cast,{M,F,A}},?KEY_MSG]->
-			    io:format(" ~p~n",[{?MODULE,?LINE,{cast,{M,F,A}}}]),
-			    A=rpc:cast(node(),M,F,A),
-			    io:format("Error ~p~n",[{?MODULE,?LINE,A}]);
+			[cast,{M,F,A},?KEY_MSG]->
+			%    io:format(" ~p~n",[{?MODULE,?LINE,{cast,{M,F,A}}}]),
+			    _CastReply=rpc:cast(node(),M,F,A);
+			 %   io:format("~p~n",[{?MODULE,?LINE,CastReply}]);
 			Err->
 			    io:format("Error ~p~n",[{?MODULE,?LINE,Err}])
 		    end;
