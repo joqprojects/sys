@@ -38,24 +38,30 @@ campaign(State)->
     AvailableServices=if_dns:call("dns",latest,{dns,get_all_instances,[]},{DnsIp,DnsPort}),
     
 						%    AvailableServices=glurk,
-   % io:format("AvailableServices ~p~n",[{?MODULE,?LINE,AvailableServices}]),
-    MissingServices=controller_lib:missing_services(NeededServices,AvailableServices),
-    %start missing services
-    case MissingServices of
+    io:format("AvailableServices ~p~n",[{?MODULE,?LINE,AvailableServices}]),
+  %  MissingServices=controller_lib:missing_services(NeededServices,AvailableServices),
+    ServicesToStart=controller_lib:services_to_start(NeededServices,AvailableServices,?WANTED_NUM_INSTANCES),
+						%start missing services
+    io:format("ServicesToStart ~p~n",[{?MODULE,?LINE,ServicesToStart}]),
+  %  case MissingServices of
+    case ServicesToStart of
 	[]->
+	    StartResult=ok,
 	    io:format("System is in preferred state  ~p~n",[{date(),time()}]),
 	    io:format("Availible services  ~p~n",[{NeededServices}]);
-	MissingServices->
-	    io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
+	ServicesToStart->
+	    StartResult=controller_lib:start_services(ServicesToStart,State#state.node_list,State,[])
+	   % io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
     end,
-    StartResult=controller_lib:start_services(MissingServices,State#state.node_list,State,[]),
-
+    
+   
+    io:format("NodeList, StartResult ~p~n",[{time(),State#state.node_list,StartResult}]),
     %Stop surplus services
     %keep system services repo, catalog, controller
     L1=keep_system_services(["repo","controller","catalog"],AvailableServices),
   %  io:format("L1 ~p~n",[{?MODULE,?LINE,time(),L1,NeededServices}]),
     SurplusServices=controller_lib:surplus_services(NeededServices,L1),
-    io:format("SurplusServices ~p~n",[{?MODULE,?LINE,time(),SurplusServices}]),
+  %  io:format("SurplusServices ~p~n",[{?MODULE,?LINE,time(),SurplusServices}]),
     StopResult=controller_lib:stop_services(SurplusServices,AvailableServices,State),
   %  io:format("StopResult ~p~n",[{?MODULE,?LINE,time(),StopResult}]),
     io:format("campaign stop ~p~n",[{?MODULE,?LINE,time()}]),
@@ -216,11 +222,39 @@ check_services([{Id,Vsn}|T],State,Acc) ->
 	   end,
     check_services(T,State,NewAcc).
 
+
+services_to_start(NeededServices,DnsList,WantedNumInstances)->
+    io:format(" services_to_start ~p~n",[{?MODULE,?LINE,time(),NeededServices,DnsList,WantedNumInstances}]),
+    AvailibleServices=[{DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}||DnsInfo<-DnsList],
+    io:format(" AvailibleServices ~p~n",[{?MODULE,?LINE,time(),AvailibleServices}]),
+%    Missing=[{{Id,Vsn},WantedNumInstances}||{Id,Vsn}<-NeededServices, 
+%				      lists:member({Id,Vsn},AvailibleServices)=:=false],
+ %   io:format(" Missing ~p~n",[{?MODULE,?LINE,time(),Missing}]),
+
+    L2=calc_to_start(NeededServices,AvailibleServices,WantedNumInstances,[]), 
+    io:format(" L2 ~p~n",[{?MODULE,?LINE,time(),L2}]),
+    L2.
+    
+  %  lists:append(Missing,L2).
+    
+calc_to_start([],AvailibleServices,WantedNumInstances,Acc)->
+    Acc;
+calc_to_start([{Id,Vsn}|T],AvailibleServices,WantedNumInstances,Acc) ->
+    io:format(" calc_to_start ~p~n",[{?MODULE,?LINE,time(),{Id,Vsn},AvailibleServices,WantedNumInstances,Acc}]),
+    L1=[{Id,Vsn}||{A_ServiceId,A_Vsn}<-AvailibleServices,
+		  true==({A_ServiceId,A_Vsn}=:={Id,Vsn})],
+    io:format(" L1 calc_to_start ~p~n",[{?MODULE,?LINE,time(),L1}]),
+    NumToStart=WantedNumInstances-lists:flatlength(L1),
+    io:format("NumToStart  calc_to_start ~p~n",[{?MODULE,?LINE,time(),NumToStart}]),
+    NewAcc=[{{Id,Vsn},NumToStart}|Acc],
+    io:format(" NewAcc ~p~n",[{?MODULE,?LINE,time(),NewAcc}]),
+    calc_to_start(T,AvailibleServices,WantedNumInstances,NewAcc).
+
 missing_services(NeededServices,DnsList)->
     AvailibleServices=[{DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}||DnsInfo<-DnsList],
     [{Id,Vsn}||{Id,Vsn}<-NeededServices, 
-	       lists:member({Id,Vsn},AvailibleServices)=:=false].
-
+			       lists:member({Id,Vsn},AvailibleServices)=:=false].
+    
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
@@ -229,7 +263,7 @@ missing_services(NeededServices,DnsList)->
 
 start_services([],_Nodes,_,StartResult)->
     StartResult;
-start_services([{ServiceId,Vsn}|T],Nodes,State,Acc)->
+start_services([{{ServiceId,Vsn},NumInstances}|T],Nodes,State,Acc)->
  %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,Nodes}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
     case if_dns:call("catalog",latest,{catalog,read,[ServiceId,Vsn]},{DnsIp,DnsPort}) of
@@ -248,7 +282,7 @@ start_services([{ServiceId,Vsn}|T],Nodes,State,Acc)->
 		    NewAcc=[{error,['error no availible nodes',ServiceId,Vsn]}|Acc],
 		    io:format("~p~n",[{?MODULE,?LINE,'error no availible nodes'}]);
 		NodesFullfilledNeeds->
-		    R=schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,?NUM_APPLICATIONS),
+		    R=schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumInstances),
 		     NewAcc=[R|Acc],
 		    io:format("~p~n",[{?MODULE,?LINE,'Service start result =',R,ServiceId,Vsn}])
 	    end;
@@ -265,7 +299,7 @@ start_services([{ServiceId,Vsn}|T],Nodes,State,Acc)->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumApps)->
+schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumInstances)->
 %    io:format("~p~n",[{?MODULE,?LINE,ServiceId,Vsn,NodesFullfilledNeeds,NumApps}]),
     NumNodes=lists:flatlength(NodesFullfilledNeeds),
 %    io:format("NumNodes ~p~n",[{?MODULE,?LINE,NumNodes}]),
@@ -274,7 +308,7 @@ schedule_start(ServiceId,Vsn,NodesFullfilledNeeds,NumApps)->
 		   io:format("Error ~p~n",[{?MODULE,?LINE,'No nodes are availible for the service ',ServiceId,Vsn}]),
 		   {error,[?MODULE,?LINE,'No nodes are availible for the service ',ServiceId,Vsn]};
 	       NumNodes ->
-		   do_start(NodesFullfilledNeeds,?NUM_APPLICATIONS,ServiceId,Vsn,[])
+		   do_start(NodesFullfilledNeeds,NumInstances,ServiceId,Vsn,[])
     end,
     Result.
 
@@ -282,15 +316,21 @@ do_start([],_,_,_,StartResult)-> % Less nodes then NodesFullfilledNeeds
     StartResult;
 do_start(_,0,_,_,StartResult)->
       StartResult;
-do_start([KubeleteInfo|T],NumApps,ServicesId,Vsn,Acc)->
+do_start([KubeleteInfo|T],NumInstances,ServicesId,Vsn,Acc)->
   %  io:format(" ~p~n",[{?MODULE,?LINE,KubeleteInfo,NumApps,ServicesId,Vsn,Acc}]),
     IpAddr=KubeleteInfo#kubelet_info.ip_addr,
     Port=KubeleteInfo#kubelet_info.port,
     io:format(" do_start ~p~n",[{?MODULE,?LINE,IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}}]),
-    R=tcp:call(IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}),
-    io:format("start result ~p~n",[{?MODULE,?LINE,R}]),
-    NewAcc=[R|Acc],
-    do_start(T,NumApps-1,ServicesId,Vsn,NewAcc).
+    StartResult=tcp:call(IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}),
+    case StartResult of
+       {error,Err}->
+	    NewNumInstances=NumInstances;
+	_->
+	    NewNumInstances=NumInstances-1
+    end,
+    io:format("start result ~p~n",[{?MODULE,?LINE,StartResult}]),
+    NewAcc=[StartResult|Acc],
+    do_start(T,NewNumInstances,ServicesId,Vsn,NewAcc).
 
 %schedule_start(ServicesId,Vsn,NodesFullfilledNeeds)->
  %   [KubeleteInfo|_]=NodesFullfilledNeeds,

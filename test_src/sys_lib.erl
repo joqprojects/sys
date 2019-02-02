@@ -34,6 +34,37 @@ start()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
+do_c_test()->
+    do_c_test(1).
+do_c_test(0)->
+    ok;
+do_c_test(N)->
+    if_dns:call("controller",latest,{controller,add,["mymath","1.0.0"]},{"80.216.3.159",60000}),  
+    c_loop(N),
+    if_dns:call("controller",latest,{controller,remove,["mymath","1.0.0"]},{"80.216.3.159",60000}), 
+    do_c_test(0).
+
+c_loop(0)->
+    ok;
+c_loop(N)->
+    Self=self(),
+    _Pid=spawn(fun()->do_add(false,Self) end),
+    receive
+	{_,R}->
+	    io:format("  ~p~n",[{?MODULE,?LINE,R}])
+    end,
+    timer:sleep(2*1000),
+    c_loop(N-1).
+
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+
+
+
 do_b_test()->
     do_b_test(1).
 do_b_test(0)->
@@ -48,7 +79,7 @@ do_b_test(N)->
     end,
     timer:sleep(1*10),
     if_dns:call("controller",latest,{controller,remove,["mymath","1.0.0"]},{"80.216.3.159",60000}), 
-    timer:sleep(10*1000),
+ %   timer:sleep(1*1000),
     do_b_test(N-1).
 
 
@@ -57,7 +88,17 @@ do_add(true,Parent)->
 do_add(Quit,Parent) ->
     TimeOut=5*1000,
  %   io:format("~p~n",[{?MODULE,?LINE}]),
-    R1=if_dns:call("adder","1.0.0",{adder,add,[20,22]},{"80.216.3.159",60000},TimeOut),
+    Instances=if_dns:call("dns",latest,{dns,get_instances,["adder","1.0.0"]},{"80.216.3.159",60000},TimeOut),
+    io:format("Instances ~p~n",[{?MODULE,?LINE,Instances}]),
+    case Instances of
+	{error,Err}->
+	    R1={error,Err};
+	_->
+	    Addresses=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port}||DnsInfo<-Instances],
+	    io:format("Addresses ~p~n",[{?MODULE,?LINE,Addresses}]),
+	    R1=tcp:test_call(Addresses,{adder,add,[20,22]},TimeOut)
+						%  R1=if_dns:call("adder","1.0.0",{adder,add,[20,22]},{"80.216.3.159",60000},TimeOut),
+    end,
     case R1 of
 	{error,_}->
 	    io:format(" R1 ~p~n",[{?MODULE,?LINE,R1}]);

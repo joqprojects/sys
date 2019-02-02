@@ -24,7 +24,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([call/3,call/4,cast/3,server_seq/1,server_parallel/1,par_connect/1]).
+-export([test_call/3,call/3,call/4,cast/3,server_seq/1,server_parallel/1,par_connect/1]).
 
 
 %%
@@ -69,8 +69,58 @@
   %  Result.
 
 %%------------------------------------------------------------------------------------------------    
+test_call(Addresses,{M,F,A},TimeOut)->
+    test_call(Addresses,{M,F,A},TimeOut,noresult).
+
+test_call([],_,_,Reply)->
+    io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
+    Reply;
+test_call([{IpAddr,Port}|T],{M,F,A},TimeOut,Result)->
+     io:format("test_call ~p~n",[{?MODULE,?LINE,IpAddr,Port,{M,F,A},Result}]),
+    case gen_tcp:connect(IpAddr,Port,?CLIENT_SETUP) of
+	{ok,Socket}->
+	    Msg=[call,{M,F,A},?KEY_MSG],
+	    case gen_tcp:send(Socket,term_to_binary(Msg)) of
+		ok->
+		    receive
+			{tcp,Socket,Bin}->
+			    NewResult=binary_to_term(Bin),
+			    gen_tcp:close(Socket),
+			    Retry=false;
+			{error,Err} ->
+			    io:format("send error ~p~n",[{?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}}]),
+			    NewResult={error,[?MODULE,?LINE,Err]},
+			    gen_tcp:close(Socket),
+			    Retry=true
+		    after TimeOut ->
+			    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,IpAddr,Port,{M,F,A}}]),
+			    NewResult={error,[?MODULE,?LINE,tcp_timeout,IpAddr,Port,{M,F,A}]},
+			    gen_tcp:close(Socket),
+			    Retry=true
+		    end;
+		{error,Err}->
+		    Retry=true,
+		    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}]}
+	    end;
+	{error,Err}->
+	    Retry=true,
+	    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}]}
+    end,
+    case Retry of
+	true->
+	    Reply=test_call(T,{M,F,A},TimeOut,NewResult);
+	false ->
+	    Reply=NewResult
+    end,
+    Reply.
     
 
+   
+%% --------------------------------------------------------------------
+%% Function: fun/x
+%% Description: fun x skeleton 
+%% Returns:ok|error
+%% --------------------------------------------------------------------
 call(IpAddr,Port,{os,cmd,A},TimeOut)->
     send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],TimeOut);
 call(IpAddr,Port,{M,F,A},TimeOut)->

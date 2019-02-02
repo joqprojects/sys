@@ -87,10 +87,7 @@ cast(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort})->
 		       InstancesDnsInfo->
 		%	   io:format("~p~n",[{?MODULE,?LINE,InstancesDnsInfo}]),
 			   [{IpAddr,Port}|_]=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port}||DnsInfo<-InstancesDnsInfo],
-			   tcp:cast(IpAddr,Port,{M,F,A});		   
-		       Err ->
-			   io:format("Error ~p~n",[{?MODULE,?LINE,Err}]),
-			   {error,[?MODULE,?LINE,Err]}
+			   tcp:cast(IpAddr,Port,{M,F,A})     
 		   end
 	   end,
     Result. 

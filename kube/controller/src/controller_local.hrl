@@ -3,4 +3,4 @@
 -record(state, {dns_list,node_list,application_list,
 		dns_info,dns_addr}).
 
--define(NUM_APPLICATIONS,2).
+-define(WANTED_NUM_INSTANCES,2).
