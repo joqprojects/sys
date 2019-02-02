@@ -286,8 +286,9 @@ do_start([KubeleteInfo|T],NumApps,ServicesId,Vsn,Acc)->
   %  io:format(" ~p~n",[{?MODULE,?LINE,KubeleteInfo,NumApps,ServicesId,Vsn,Acc}]),
     IpAddr=KubeleteInfo#kubelet_info.ip_addr,
     Port=KubeleteInfo#kubelet_info.port,
+    io:format(" do_start ~p~n",[{?MODULE,?LINE,IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}}]),
     R=tcp:call(IpAddr,Port,{kubelet,start_service,[ServicesId,Vsn]}),
- %   io:format(" ~p~n",[{?MODULE,?LINE,R}]),
+    io:format("start result ~p~n",[{?MODULE,?LINE,R}]),
     NewAcc=[R|Acc],
     do_start(T,NumApps-1,ServicesId,Vsn,NewAcc).
 

@@ -218,10 +218,11 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 %		  io:format("AppIdServices ~p~n",[{?MODULE,?LINE,time(),AppIdServices}]),
 		  ServicesToStop=[{X_ServiceId,X_Vsn}||{X_ServiceId,X_Vsn}<-AppIdServices,
 						   false==lists:member({X_ServiceId,X_Vsn},AllServices)],
-%		  io:format("ServicesToStop ~p~n",[{?MODULE,?LINE,time(),ServicesToStop}]),
+		  io:format("ServicesToStop ~p~n",[{?MODULE,?LINE,time(),ServicesToStop}]),
 		  % DNS holds all information about services 
 		  {dns,DnsIp,DnsPort}=State#state.dns_addr,
 		  AvailableServices=if_dns:call("dns",latest,{dns,get_all_instances,[]},{DnsIp,DnsPort}),
+		   io:format("AvailableServices ~p~n",[{?MODULE,?LINE,time(),AvailableServices}]),
 		  NewDnsList=rpc:call(node(),controller_lib,stop_services,[ServicesToStop,AvailableServices,State]),
 		  NewState=State#state{application_list=NewAppList,dns_list=NewDnsList},
 		  ok

@@ -99,7 +99,9 @@ heart_beat()->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-   % os:cmd("rm service_ebin/*"),
+    % secure that the system is reset 
+    os:cmd("rm service_ebin/*"),
+    % config data 
     {ok,InitialInfo}=file:consult("kubelet.config"),
     {ip_addr,NodeIp}=lists:keyfind(ip_addr,1,InitialInfo),
     {port,NodePort}=lists:keyfind(port,1,InitialInfo),

@@ -26,7 +26,7 @@
 
 
 -export([a/0,a/1,
-	 b/0
+	 b/0,b/1
 	]).
 
 -export([start/0,
@@ -57,7 +57,8 @@ a(N)->
     gen_server:call(?MODULE, {a,N},infinity).
 b()->
     gen_server:call(?MODULE, {b},infinity).
-
+b(N)->
+    gen_server:call(?MODULE, {b,N},infinity).
 %%-----------------------------------------------------------------------
 
 %% ====================================================================
@@ -100,6 +101,11 @@ handle_call({a}, _From, State) ->
     {reply, Reply, State};
 handle_call({a,N}, _From, State) ->
     sys_lib:do_a_test(N),
+    Reply=ok,
+    {reply, Reply, State};
+
+handle_call({b,N}, _From, State) ->
+    sys_lib:do_b_test(N),
     Reply=ok,
     {reply, Reply, State};
 
