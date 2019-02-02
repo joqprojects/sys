@@ -62,9 +62,10 @@ update_artifact(Artifact)->
     gen_server:call(?MODULE, {update_artifact,Artifact},infinity).
 read_artifact(ServiceId,Vsn)-> 
     gen_server:call(?MODULE, {read_artifact,ServiceId,Vsn},infinity).
+%--------------------------------------------------------------------
 
 heart_beat()-> 
-    gen_server:call(?MODULE, {heart_beat},infinity).
+    gen_server:cast(?MODULE, {heart_beat}).
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -138,15 +139,6 @@ handle_call({read_artifact,ServiceId,Vsn}, _From, State) ->
     {reply, Reply, State};
 
 
-handle_call({heart_beat}, _From, State) ->
-    DnsInfo=State#state.dns_info,
-    {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),   
-    if_dns:cast("controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
-    Reply=ok,
-   {reply, Reply, State};
-
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
@@ -161,6 +153,11 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_cast({heart_beat}, State) ->
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}),   
+    {noreply,State};
 
 handle_cast(Msg, State) ->
     io:format("unmatched match cast ~p~n",[{Msg,?MODULE,time()}]),
@@ -197,7 +194,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 local_heart_beat(Interval)->
 %    io:format(" ~p~n",[{?MODULE,?LINE}]),
-    timer:sleep(10),
+    timer:sleep(10*1000),
     ?MODULE:heart_beat(),
     timer:sleep(Interval),
     spawn(fun()-> local_heart_beat(Interval) end).

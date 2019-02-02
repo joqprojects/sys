@@ -24,7 +24,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([call/4,call/5,cast/3,server_seq/1,server_parallel/1,par_connect/1]).
+-export([call/3,call/4,cast/3,server_seq/1,server_parallel/1,par_connect/1]).
 
 
 %%
@@ -71,19 +71,19 @@
 %%------------------------------------------------------------------------------------------------    
     
 
-call(ClientPid,IpAddr,Port,{os,cmd,A},TimeOut)->
-    send_call(ClientPid,IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],TimeOut);
-call(ClientPid,IpAddr,Port,{M,F,A},TimeOut)->
-    send_call(ClientPid,IpAddr,Port,[call,{M,F,A},?KEY_MSG],TimeOut).
+call(IpAddr,Port,{os,cmd,A},TimeOut)->
+    send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],TimeOut);
+call(IpAddr,Port,{M,F,A},TimeOut)->
+    send_call(IpAddr,Port,[call,{M,F,A},?KEY_MSG],TimeOut).
 
-call(ClientPid,IpAddr,Port,{os,cmd,A})->
-    send_call(ClientPid,IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],?TIMEOUT_TCPCLIENT);
-call(ClientPid,IpAddr,Port,{M,F,A})->
-    send_call(ClientPid,IpAddr,Port,[call,{M,F,A},?KEY_MSG],?TIMEOUT_TCPCLIENT).
+call(IpAddr,Port,{os,cmd,A})->
+    send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],?TIMEOUT_TCPCLIENT);
+call(IpAddr,Port,{M,F,A})->
+    send_call(IpAddr,Port,[call,{M,F,A},?KEY_MSG],?TIMEOUT_TCPCLIENT).
 
 
 
-send_call(ClientPid,Addr,Port,Msg,TimeOut)->
+send_call(Addr,Port,Msg,TimeOut)->
     case gen_tcp:connect(Addr,Port,?CLIENT_SETUP) of
 	{ok,Socket}->
 	  %  io:format("ok Socket  ~p~n",[{?MODULE,?LINE,Addr,Port,Msg,inet:socknames(Socket)}]),
@@ -91,36 +91,21 @@ send_call(ClientPid,Addr,Port,Msg,TimeOut)->
 	    receive
 		{tcp,Socket,Bin}->
 		    Result=binary_to_term(Bin),
-		    Reply=reply,
 		    gen_tcp:close(Socket);
 		{error,Err} ->
 		    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg}]),
 		    Result={error,[?MODULE,?LINE,Err]},
-		    Reply=reply,
-		    gen_tcp:close(Socket);
-		{ClientPid,close}->
-		    Reply=no_reply,
-		    Result=na,
 		    gen_tcp:close(Socket)
 	    after TimeOut ->
 		    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,Addr,Port,Msg}]),
 		    Result={error,[?MODULE,?LINE,tcp_timeout,Addr,Port,Msg]},
-		    Reply=reply,
 		    gen_tcp:close(Socket)
 	    end;
 	{error,Err} ->
 	    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg}]),
-	    Result={error,{Err,?MODULE,?LINE}},
-	    Reply=reply
+	    Result={error,{Err,?MODULE,?LINE}}
     end,
-    case Reply of
-	no_reply->
-	    no_reply;
-	reply->
-	    ClientPid!{self(),result,Result};
-	_ ->
-	    no_reply
-    end.
+    Result.
 
 cast(IpAddr,Port,{os,cmd,A})->
     send_cast(IpAddr,Port,[cast,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG]);
@@ -182,15 +167,6 @@ single(Socket)->
     receive
 	{tcp, Socket, RawData}->
 	    case binary_to_term(RawData) of
-	%	[{M,F,A},?KEY_MSG]->
-	%	    R=rpc:call(node(),M,F,A),
-	%	    Reply=case R of
-	%		      {badrpc,Err}->
-	%			  {error,[?MODULE,?LINE,R]};
-	%		      R->
-	%			  R
-	%		  end,
-	%	    gen_tcp:send(Socket,term_to_binary(Reply));
 		[{call,{M,F,A}},?KEY_MSG]->
 		    R=rpc:call(node(),M,F,A),
 		    io:format("~p~n",[{?MODULE,?LINE,R}]),
@@ -203,10 +179,10 @@ single(Socket)->
 		    gen_tcp:send(Socket,term_to_binary(Reply)),
 		    single(Socket);
 		[{cast,{M,F,A}},?KEY_MSG]->
-		 %   io:format(" ~p~n",[{?MODULE,?LINE,{cast,{M,F,A}}}]),
+			%   io:format(" ~p~n",[{?MODULE,?LINE,{cast,{M,F,A}}}]),
 		    _A=rpc:cast(node(),M,F,A),
 		    gen_tcp:close(Socket);
-		  %  io:format("Error ~p~n",[{?MODULE,?LINE,A}]);
+		%  io:format("Error ~p~n",[{?MODULE,?LINE,A}]);
 		Err->
 		    io:format("Error ~p~n",[{?MODULE,?LINE,Err}])
 	    end;

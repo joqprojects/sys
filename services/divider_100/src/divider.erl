@@ -52,19 +52,15 @@ start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
+heart_beat()->
+    gen_server:call(?MODULE, {heart_beat},5000).
 
 %%-----------------------------------------------------------------------
-
-heart_beat()->
-    gen_server:call(?MODULE, {heart_beat},infinity).
-
-
 divi(A,B)->
     gen_server:call(?MODULE, {divi,A,B},infinity).
 
 %%-----------------------------------------------------------------------
-
-%% ====================================================================
+%%-----------------------------------------------------------------------
 %% Server functions
 %% ====================================================================
 
@@ -99,9 +95,6 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-    rpc:cast(node(),if_dns,call,["dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
-    rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     {ok, #state{dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.   
 
@@ -120,20 +113,18 @@ handle_call({divi,A,B}, _From, State) ->
     Reply=rpc:call(node(),divider_lib,divi,[A,B]),
     {reply, Reply, State};
 
-
-handle_call({heart_beat}, _From, State) ->
+handle_call({heart_beat},_, State) ->
     DnsInfo=State#state.dns_info,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    rpc:cast(node(),if_dns,call,["dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
-    rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
-   % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
-    Reply=ok,
-   {reply, Reply, State};
-    
-
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}),
+    {reply,ok, State};
 
 handle_call({stop}, _From, State) ->
+   
+    io:format("stop ~p~n",[{?MODULE,?LINE}]),
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    if_dns:cast("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}),
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
@@ -150,7 +141,6 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-
 
 handle_cast(Msg, State) ->
  %   DnsInfo=State#state.dns_info,

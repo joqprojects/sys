@@ -36,12 +36,12 @@
 %% External exports -gen_server functions 
 
 -export([start_service/2,
-	 stop_service/1,
+	 stop_service/2,
 	 upgrade/2,
 	 loaded_services/0,
 	 my_ip/0,
-	 dns_register/1,
-	 de_dns_register/1,
+	% dns_register/1,
+	% de_dns_register/1,
 	 start_kubelet/0,
 	 heart_beat/0
 	]).
@@ -68,14 +68,16 @@ stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 start_service(ServiceId,Vsn)-> 
     gen_server:call(?MODULE, {start_service,ServiceId,Vsn},infinity).
-stop_service(ServiceId)-> 
-    gen_server:call(?MODULE, {stop_service,ServiceId},infinity).
+stop_service(ServiceId,Vsn)-> 
+    gen_server:call(?MODULE, {stop_service,ServiceId,Vsn},infinity).
 
 my_ip()-> 
     gen_server:call(?MODULE, {my_ip},infinity).
 loaded_services()-> 
     gen_server:call(?MODULE, {loaded_services},infinity).
 
+
+%%-----------------------------------------------------------------------
 dns_register(DnsInfo)-> 
     gen_server:cast(?MODULE, {dns_register,DnsInfo}).
 de_dns_register(DnsInfo)-> 
@@ -86,8 +88,7 @@ upgrade(ServiceId,Vsn)->
 
 
 heart_beat()->
-    gen_server:call(?MODULE, {heart_beat},infinity).
-%%-----------------------------------------------------------------------
+    gen_server:cast(?MODULE, {heart_beat}).
 
 %% --------------------------------------------------------------------
 %% Function: init/1
@@ -176,32 +177,32 @@ handle_call({loaded_services},_From, State) ->
     {reply, Reply, State};
 
 handle_call({start_service,ServiceId,Vsn},_From, State) ->
+    
     DnsList=State#state.dns_list,
     #kubelet_info{ip_addr=MyIp,port=Port}=State#state.kubelet_info,   
-    Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
-	      []->
+    Reply= case check_if_loaded(ServiceId,Vsn) of
+
+   % Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
+	      false->
 		   case rpc:call(node(),kubelet_lib,load_start_app,[ServiceId,Vsn,MyIp,Port,State]) of
 		       ok->
 			   ok;
 		       Err->
 			   {error,[?MODULE,?LINE,Err,ServiceId,Vsn]}
 		   end;
-	       [DnsInfo]->
-		   {error,[?MODULE,?LINE,'already loaded and started',ServiceId,Vsn,DnsInfo]}
+	       true->
+		   {error,[?MODULE,?LINE,'already loaded and started',ServiceId,Vsn]}
 	   end,
     
     {reply, Reply, State};
 
-handle_call({stop_service,ServiceId}, _From, State) ->
-    DnsList=State#state.dns_list,  
-    
-    Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
-	       []->
-		   NewState=State,
+handle_call({stop_service,ServiceId,Vsn}, _From, State) ->
+    Reply= case check_if_loaded(ServiceId,Vsn) of
+	       false->
 		   {error,[?MODULE,?LINE,'eexists',ServiceId]};
-	       [DnsInfo]->   
-		   NewDnsList=lists:delete(DnsInfo,State#state.dns_list),
-		   NewState=State#state{dns_list=NewDnsList},
+	       true->   
+		   {dns,DnsIp,DnsPort}=State#state.dns_addr, 
+		   [DnsInfo|_]=if_dns:call("dns",latest,{dns,get_instances,[ServiceId,Vsn]},{DnsIp,DnsPort}),    
 		   case rpc:call(node(),kubelet_lib,stop_unload_app,[DnsInfo,State]) of
 		       ok->
 			   ok;
@@ -211,26 +212,7 @@ handle_call({stop_service,ServiceId}, _From, State) ->
 		   end
 	   end,
 
-    {reply, Reply, NewState};
-
-
-handle_call({heart_beat}, _From, State) ->
-    DnsList=State#state.dns_list,
-    Now=erlang:now(),
-    NewDnsList=[DnsInfo||DnsInfo<-DnsList,
-		      (timer:now_diff(Now,DnsInfo#dns_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
-
-    % Send services registration to Controller
-    NodeInfo=State#state.kubelet_info,
-    NodeIp=NodeInfo#kubelet_info.ip_addr,
-    NodePort=NodeInfo#kubelet_info.port,
-    {dns,DnsIp,DnsPort}=State#state.dns_addr,
-  %  [rpc:cast(node(),if_dns,call,["controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0])||DnsInfo<-NewDnsList],
-    % Register node
-    if_dns:cast("controller",latest,{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort},1),
-    NewState=State#state{dns_list=NewDnsList},
-    Reply=ok,
-   {reply, Reply, NewState};
+    {reply, Reply, State};
 
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
@@ -246,6 +228,18 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_cast({heart_beat},State) ->
+    DnsList=State#state.dns_list,
+    % Send services registration to Controller
+    NodeInfo=State#state.kubelet_info,
+    NodeIp=NodeInfo#kubelet_info.ip_addr,
+    NodePort=NodeInfo#kubelet_info.port,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    R=if_dns:cast("controller",latest,{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort}),
+ %   io:format("~p~n",[{?MODULE,?LINE,R}]),
+ %   NewState=State#state{dns_list=NewDnsList},
+   {noreply,State};
+
 handle_cast({upgrade,_ServiceId,_Vsn}, State) ->
 	    % get tar file from SW repositroy
 	    % create service_info record
@@ -313,7 +307,7 @@ handle_info({'DOWN',Ref,process,Pid,normal},  #state{lSock = LSock,active_worker
     {noreply, NewState};
 
 handle_info(Info, State) ->
-    io:format("unmatched signal ~p~n",[{?MODULE,?LINE,Info}]),
+%    io:format("unmatched signal ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -342,7 +336,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------
 local_heart_beat(Interval)->
   %  io:format(" ~p~n",[{?MODULE,?LINE}]),
-    timer:sleep(100),
+    timer:sleep(1000),
     ?MODULE:heart_beat(),
     timer:sleep(Interval),
     spawn(fun()-> local_heart_beat(Interval) end).
@@ -382,6 +376,7 @@ start_worker(ParentPid,LSock)->
 			    Reply=rpc:call(node(),M,F,A),
 			    gen_tcp:send(Socket,term_to_binary(Reply));
 			[call,{M,F,A},?KEY_MSG]->
+		%	    io:format(" ~p~n",[{?MODULE,?LINE,{call,{M,F,A}}}]),
 			    Reply=rpc:call(node(),M,F,A),
 			    gen_tcp:send(Socket,term_to_binary(Reply));
 			[cast,{M,F,A},?KEY_MSG]->
@@ -401,4 +396,19 @@ start_worker(ParentPid,LSock)->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-
+check_if_loaded(ServiceId,VsnDelete)->
+    BaseName=ServiceId++".app",
+    Appfile=filename:join(?SERVICE_EBIN,BaseName),
+    Bool=case file:consult(Appfile) of
+	     {ok,[{application,_,Info}]}->
+		 {vsn,Vsn}=lists:keyfind(vsn,1,Info),
+		     case Vsn=:=VsnDelete of
+			 false->
+			     false;
+			 true ->
+			     true
+		     end;
+	     _ ->
+		 false
+	 end,
+    Bool.

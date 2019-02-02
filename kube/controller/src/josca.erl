@@ -106,10 +106,13 @@ dependencies(I)->
 start_order(Name,Vsn,State)->
   %  io:format("~p~n",[{?MODULE,?LINE,Name,Vsn}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    Result=case if_dns:call("catalog",latest,{catalog,read,[Name,Vsn]},{DnsIp,DnsPort},1,1) of
+    CatalogInfo=if_dns:call("catalog",latest,{catalog,read,[Name,Vsn]},{DnsIp,DnsPort}),
+  %  io:format("CatalogInfo ~p~n",[{?MODULE,?LINE,CatalogInfo}]),
+  %  Result=case if_dns:call("catalog",latest,{catalog,read,[Name,Vsn]},{DnsIp,DnsPort},1,1) of
+    Result=case CatalogInfo of
 	       {error,Err}->
 		   {error,[?MODULE,?LINE,Err]};
-	       [{ok,_,JoscaInfo}]->
+	       {ok,_,JoscaInfo}->
 		   Acc=case lists:keyfind(type,1,JoscaInfo) of 
 			   {type,application}->
 			       [];

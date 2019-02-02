@@ -62,12 +62,12 @@
 
 %%---------------------------------------------------------------------
 
--export([campaign/0,
+-export([campaign/1,
 	 add/2,remove/2,
 %	 start_application/2,stop_application/2,% get_services/0,
 	 get_all_applications/0,get_all_services/0,
 	 all_nodes/0,
-	 dns_register/1,de_dns_register/1,
+%	 dns_register/1,de_dns_register/1,
 	 node_register/1,de_node_register/1
 	]).
 
@@ -92,13 +92,16 @@ stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
 %%-----------------------------------------------------------------------
-heart_beat()->
-    gen_server:call(?MODULE, {heart_beat},infinity).
+
 % Test
 
 
 %% end test
-   
+campaign(Interval)->
+    gen_server:call(?MODULE, {campaign,Interval},infinity).
+
+heart_beat()->
+    gen_server:call(?MODULE, {heart_beat},infinity).   
 all_nodes()->
     gen_server:call(?MODULE, {all_nodes},infinity).
 
@@ -115,8 +118,9 @@ add(AppId,Vsn)->
 remove(AppId,Vsn)->
     gen_server:call(?MODULE, {remove,AppId,Vsn},infinity). 
 %%-----------------------------------------------------------------------
-campaign()->
-    gen_server:cast(?MODULE, {campaign}).
+
+
+
 node_register(KubeletInfo)->
     gen_server:cast(?MODULE, {node_register,KubeletInfo}).
 de_node_register(KubeletInfo)->
@@ -156,15 +160,8 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-   % ok=if_dns:call("controller",latest,{controller,dns_register,[DnsInfo]}, 
-%		{DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT),
-    io:format("  ~p~n",[{?MODULE,?LINE}]),
-    if_dns:call("dns",latest,{dns,dns_register,[DnsInfo]}, 
-		{DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT),
-    io:format("  ~p~n",[{?MODULE,?LINE}]),
-%   rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-%		 {DnsIp,DnsPort}]),
-    spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end),     
+    spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
+    spawn(fun()-> do_campaign(?HEARTBEAT_INTERVAL) end),    
     io:format("Started Service  ~p~n",[{?MODULE}]),
     {ok, #state{dns_list=[],node_list=[],application_list=[],
 		dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}.  
@@ -180,25 +177,31 @@ init([]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({add,AppId,Vsn}, _From, State) ->
+    io:format(" Add new application ~p~n",[{?MODULE,?LINE,time(),add,AppId,Vsn}]),
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
     Reply=case lists:keyfind({AppId,Vsn},1,State#state.application_list) of
 	      false->
-		  case if_dns:call("catalog",latest,{catalog,read,[AppId,Vsn]},{DnsIp,DnsPort},1,1) of
+		  case if_dns:call("catalog",latest,{catalog,read,[AppId,Vsn]},{DnsIp,DnsPort}) of
 		      {error,Err}->
 			  NewState=State,
+			  io:format(" Error  ~p~n",[{?MODULE,?LINE,time(),Err}]),
 			  {error,[?MODULE,?LINE,AppId,Vsn,Err]};
-		      [{ok,_,JoscaInfo}]->
+		      {ok,_,JoscaInfo}->
 			  NewAppList=[{{AppId,Vsn},JoscaInfo}|State#state.application_list],
+%			  io:format(" New application ~p~n",[{?MODULE,?LINE,time(),NewAppList}]),
 			  NewState=State#state{application_list=NewAppList},
 			  ok;
 		      Err ->
 			  NewState=State,
+			  io:format(" Error  ~p~n",[{?MODULE,?LINE,time(),Err}]),
 			  {error,[?MODULE,?LINE,AppId,Vsn,Err]}
 		  end;
 	      _->
 		  NewState=State,
+		  io:format(" New application ~p~n",[{?MODULE,?LINE,time(),'already exists',AppId,Vsn}]),
 		  {error,[?MODULE,?LINE,'already exists',AppId,Vsn]}
 	  end,
+
     {reply, Reply,NewState};
 
 handle_call({remove,AppId,Vsn}, _From, State)->
@@ -210,13 +213,16 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 		  NewAppList=lists:keydelete({AppId,Vsn},1,State#state.application_list),
 		%  io:format("NewAppList ~p~n",[{time(),NewAppList,?MODULE,?LINE}]),
 		  AllServices=rpc:call(node(),controller_lib,needed_services,[NewAppList,State]),
-		%  io:format("AllServices ~p~n",[{time(),AllServices,?MODULE,?LINE}]),
+%		  io:format("AllServices ~p~n",[{?MODULE,?LINE,time(),AllServices}]),
 		  AppIdServices=rpc:call(node(),controller_lib,needed_services,[[{{AppId,Vsn},JoscaInfo}],State]),
-		%  io:format("AppIdServices ~p~n",[{time(),AppIdServices,?MODULE,?LINE}]),
+%		  io:format("AppIdServices ~p~n",[{?MODULE,?LINE,time(),AppIdServices}]),
 		  ServicesToStop=[{X_ServiceId,X_Vsn}||{X_ServiceId,X_Vsn}<-AppIdServices,
 						   false==lists:member({X_ServiceId,X_Vsn},AllServices)],
-		 % io:format("ServicesToStop ~p~n",[{time(),ServicesToStop,?MODULE,?LINE}]),
-		  NewDnsList=rpc:call(node(),controller_lib,stop_services,[ServicesToStop,State#state.dns_list,State]),
+%		  io:format("ServicesToStop ~p~n",[{?MODULE,?LINE,time(),ServicesToStop}]),
+		  % DNS holds all information about services 
+		  {dns,DnsIp,DnsPort}=State#state.dns_addr,
+		  AvailableServices=if_dns:call("dns",latest,{dns,get_all_instances,[]},{DnsIp,DnsPort}),
+		  NewDnsList=rpc:call(node(),controller_lib,stop_services,[ServicesToStop,AvailableServices,State]),
 		  NewState=State#state{application_list=NewAppList,dns_list=NewDnsList},
 		  ok
 	  end,
@@ -225,6 +231,7 @@ handle_call({remove,AppId,Vsn}, _From, State)->
 handle_call({get_all_applications},_From, State) ->
     Reply=State#state.application_list,
     {reply, Reply, State};
+
 
 handle_call({get_all_services},_From, State) ->
     Reply=State#state.dns_list,
@@ -240,53 +247,30 @@ handle_call({all_nodes},_From, State) ->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
+handle_call({heart_beat},_,State) ->
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}), 
+    Now=erlang:now(),
+    NewNodeList=[KubeletInfo||KubeletInfo<-State#state.node_list,
+		      (timer:now_diff(Now,KubeletInfo#kubelet_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
+
+    NewState=State#state{node_list=NewNodeList},
+  %  io:format("NewNodeList ~p~n",[{date(),time(),NewNodeList}]),
+    Reply=NewNodeList,
+   {reply,Reply,NewState};
+
+
+handle_call({campaign,Interval},_, State) ->
+    Reply=rpc:call(node(),controller_lib,campaign,[State]),
+    spawn(fun()-> do_campaign(Interval) end),
+    {reply,Reply, State};
 
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-
-handle_call({heart_beat}, _From, State) ->
-
-    DnsInfo=State#state.dns_info,
-    {dns,DnsIp,DnsPort}=State#state.dns_addr,
-  %  rpc:cast(node(),if_dns,call,["dns",{dns,dns_register,[DnsInfo]},
-%		 {DnsIp,DnsPort}]),
-    rpc:cast(node(),if_dns,call,["controller",latest,{dns,dns_register,[DnsInfo]}, 
-		{DnsIp,DnsPort},1,0,?TIMEOUT_TCPCLIENT]), 
-
-   rpc:call(node(),kubelet,dns_register,[State#state.dns_info]),
-
-    Now=erlang:now(),
-    NewDnsList=[X_DnsInfo||X_DnsInfo<-State#state.dns_list,
-		      (timer:now_diff(Now,X_DnsInfo#dns_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
-   
-    NewNodeList=[KubeletInfo||KubeletInfo<-State#state.node_list,
-		      (timer:now_diff(Now,KubeletInfo#kubelet_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
-    
-    NewState=State#state{dns_list=NewDnsList,node_list=NewNodeList},
-    io:format("DnsList ~p~n",[{?MODULE,?LINE,State#state.dns_list}]),
-    io:format("NewDnsList ~p~n",[{?MODULE,?LINE,NewDnsList}]),
-  %  rpc:call(node(),controller,campaign,[]),
-   % io:format(" ~p~n",[{time(),'after campaign',?MODULE,?LINE}]),   
-%campagne
-    NeededServices=rpc:call(node(),controller_lib,needed_services,[NewState#state.application_list,NewState]),
-    io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
-    MissingServices=rpc:call(node(),controller_lib,missing_services,[NeededServices,NewState#state.dns_list]),
-    case MissingServices of
-	[]->
-	    io:format("System is in preferred state  ~p~n",[{date(),time()}]),
-	    	    io:format("Availible services  ~p~n",[{NeededServices}]);
-	MissingServices->
-	    io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
-    end,
-    rpc:call(node(),controller_lib,start_services,[MissingServices,NewState#state.node_list,NewState]),
-
-
-    Reply=ok,
-   {reply, Reply,NewState};
-    
 
 %% --------------------------------------------------------------------
 %% Function: 
@@ -309,71 +293,26 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast({campaign}, State) ->
-    NeededServices=rpc:call(node(),controller_lib,needed_services,[State#state.application_list,State]),
-   io:format("NeededServices ~p~n",[{?MODULE,?LINE,NeededServices}]),
-    MissingServices=rpc:call(node(),controller_lib,missing_services,[NeededServices,State#state.dns_list]),
-    case MissingServices of
-	[]->
-	    io:format("System is in preferred state  ~p~n",[{date(),time()}]),
-	    	    io:format("Availible services  ~p~n",[{NeededServices}]);
-	MissingServices->
-	    io:format("MissingServices ~p~n",[{date(),time(),MissingServices}])
-    end,
-    rpc:call(node(),controller_lib,start_services,[MissingServices,State#state.node_list,State]),
-    {noreply, State};
 
 
 handle_cast({dns_register,DnsInfo}, State) ->
-    Service=DnsInfo#dns_info.service_id,
-    Ip=DnsInfo#dns_info.ip_addr,
-    P=DnsInfo#dns_info.port,
- %   io:format("~p~n",[{time(),Service,Ip,P,?MODULE,?LINE}]),
-    TimeStamp=erlang:now(),
-    NewDnsInfo=DnsInfo#dns_info{time_stamp=TimeStamp},
-    #dns_info{time_stamp=_,ip_addr=IpAddr,port=Port,service_id=ServiceId,vsn=Vsn}=DnsInfo,
-    
-    X1=[X||X<-State#state.dns_list,false==({IpAddr,Port,ServiceId,Vsn}==
-				  {X#dns_info.ip_addr,X#dns_info.port,X#dns_info.service_id,X#dns_info.vsn})],
-    NewDnsList=[NewDnsInfo|X1],
-    NewState=State#state{dns_list=NewDnsList},
+    io:format(" dns_registe ~p~n",[{time(),DnsInfo}]),
+    NewState=controller_lib:dns_register(DnsInfo,State),
     {noreply, NewState};
 
 handle_cast({de_dns_register,DnsInfo}, State) ->
-    #dns_info{time_stamp=_,ip_addr=IpAddr,port=Port,service_id=ServiceId,vsn=Vsn}=DnsInfo,
-    NewDnsList=[X||X<-State#state.dns_list,
-		   false==({IpAddr,Port,ServiceId,Vsn}=={X#dns_info.ip_addr,X#dns_info.port,X#dns_info.service_id,X#dns_info.vsn})],
-    
-    NewState=State#state{dns_list=NewDnsList},
+    io:format(" de_dns_registe ~p~n",[{time(),DnsInfo}]),
+    NewState=controller_lib:de_dns_register(DnsInfo,State),
     {noreply, NewState};
 
 handle_cast({node_register,KubeletInfo}, State) ->
-    Service=KubeletInfo#kubelet_info.service_id,
-    Ip=KubeletInfo#kubelet_info.ip_addr,
-    P=KubeletInfo#kubelet_info.port,
-  %  io:format("~p~n",[{time(),Service,Ip,P,?MODULE,?LINE}]),
-
-    TimeStamp=erlang:now(),
-    NewKubeletInfo=KubeletInfo#kubelet_info{time_stamp=TimeStamp},
-    #kubelet_info{time_stamp=_,ip_addr=IpAddr,port=Port,service_id=ServiceId,vsn=Vsn,
-		  max_workers=_MaxWorkers,zone=_Zone,capabilities=_Capabilities,
-		  node_type=_
-		 }=KubeletInfo,
-%    io:format("~p~n",[{?MODULE,?LINE,State#state.node_list}]),
-    X1=[X||X<-State#state.node_list,false==({IpAddr,Port,ServiceId,Vsn}==
-				  {X#kubelet_info.ip_addr,X#kubelet_info.port,X#kubelet_info.service_id,X#kubelet_info.vsn})],
-    NewKubeletList=[NewKubeletInfo|X1],
-   % io:format("~p~n",[{?MODULE,?LINE,NewKubeletList}]),
-    NewState=State#state{node_list=NewKubeletList},
+%    io:format("node_register ~p~n",[{time(),KubeletInfo}]),
+    NewState=controller_lib:node_register(KubeletInfo, State),
     {noreply, NewState};
 
 handle_cast({de_node_register,KubeletInfo}, State) ->
-    #dns_info{time_stamp=_,ip_addr=IpAddr,port=Port,service_id=ServiceId,vsn=Vsn}=KubeletInfo,
-    NewKubeletList=[X||X<-State#state.node_list,
-		       false==({IpAddr,Port,ServiceId,Vsn}==
-				   {X#kubelet_info.ip_addr,X#kubelet_info.port,X#kubelet_info.service_id,X#kubelet_info.vsn})],
-    
-    NewState=State#state{node_list=NewKubeletList},
+    io:format("de_node_register ~p~n",[{time(),KubeletInfo}]),
+     NewState=controller_lib:de_node_register(KubeletInfo, State),
     {noreply, NewState};
 
 handle_cast(Msg, State) ->
@@ -390,8 +329,8 @@ handle_cast(Msg, State) ->
 
 
 handle_info(Info, State) ->
-    io:format("unmatched match cast ~p~n",[{time(),?MODULE,?LINE,Info}]),
-    if_log:call(State#state.dns_info,error,[?MODULE,?LINE,'unmatched signal',Info]),
+  %  io:format("unmatched match cast ~p~n",[{time(),?MODULE,?LINE,Info}]),
+   % if_log:call(State#state.dns_info,error,[?MODULE,?LINE,'unmatched signal',Info]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -431,11 +370,17 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: non
 %% --------------------------------------------------------------------
 local_heart_beat(Interval)->
-%    io:format(" ~p~n",[{?MODULE,?LINE}]),
-    timer:sleep(50),
+%    io:format("heart_beat ~p~n",[{?MODULE,?LINE}]),
+   % timer:sleep(1000),
     ?MODULE:heart_beat(),
     timer:sleep(Interval),
     spawn(fun()-> local_heart_beat(Interval) end).
+
+
+do_campaign(Interval)->
+%    io:format(" ~p~n",[{?MODULE,?LINE}]),
+    timer:sleep(Interval),
+    ?MODULE:campaign(Interval).
 %% --------------------------------------------------------------------
 %% Function: 
 %% Description:

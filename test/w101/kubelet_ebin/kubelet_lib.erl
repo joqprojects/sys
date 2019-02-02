@@ -123,6 +123,26 @@ load_start_apps([repo|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre 
     NewAcc=[{"repo",Vsn,R}|Acc],
     load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
 
+load_start_apps([controller|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre loaded
+ %    io:format(" ~p~n",[{?MODULE, ?LINE,NodeIp,NodePort,Acc,State}]),
+ 
+   ok=application:set_env(controller,dns_ip_addr,DnsIp),
+    ok=application:set_env(controller,dns_port,DnsPort),
+
+    ok=application:set_env(controller,ip_addr,NodeIp),
+    ok=application:set_env(controller,port,NodePort),
+    ok=application:set_env(controller,service_id,"controller"),
+    EbinDir=?KUBELET_EBIN,
+   Appfile=filename:join(EbinDir,"controller.app"),
+    {ok,[{application,_,Info}]}=file:consult(Appfile),
+    {vsn,Vsn}=lists:keyfind(vsn,1,Info),
+    ok=application:set_env(controller,vsn,Vsn),
+
+    R=application:start(controller),
+    io:format("start_result ~p~n",[{?MODULE, ?LINE,R}]),
+    NewAcc=[{"controller",Vsn,R}|Acc],
+    load_start_apps(T,NodeIp,NodePort,NewAcc,{DnsIp,DnsPort});
+
 load_start_apps([dns|T],NodeIp,NodePort,Acc,{DnsIp,DnsPort}) -> %Has to be pre loaded
     ok=application:set_env(dns,ip_addr,NodeIp),
     ok=application:set_env(dns,port,NodePort),
@@ -169,7 +189,7 @@ stop_unload_app(DnsInfo,State)->
      io:format("~p~n",[{?MODULE,?LINE,DnsInfo}]),
     #dns_info{service_id=ServiceId,vsn=Vsn}=DnsInfo,
     {dns,DnsIp,DnsPort}=State#state.dns_addr, 
-    [Artifact]=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort},1,1),    
+    Artifact=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,Vsn]},{DnsIp,DnsPort}),    
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
 	      appfile={AppFileBaseName,_},
@@ -197,8 +217,8 @@ stop_unload_app(DnsInfo,State)->
     ok=file:delete(Appfile),
     DeleteResult=[file:delete(filename:join(Ebin,ModuleName))||{ModuleName,_}<-Modules], 
    % if_dns:call("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0),
-   % if_dns:call("controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0),
-   rpc:cast(node(),if_dns,call,["dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
+    if_dns:cast("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}),
+ %  rpc:cast(node(),if_dns,call,["dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
  %  rpc:cast(node(),if_dns,call,["controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
     
     Reply=case [Y||Y<-DeleteResult,false=={Y=:=ok}] of
@@ -258,7 +278,7 @@ load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort})->  % VsnInput 
 		 ?SERVICE_EBIN
       end,   
  %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
-    [Artifact]=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort},1,1),
+    Artifact=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort}),
  %   io:format("~p~n",[{?MODULE,?LINE,Artifact}]),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,

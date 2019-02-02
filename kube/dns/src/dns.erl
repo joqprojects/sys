@@ -145,6 +145,7 @@ handle_call({heart_beat}, _From, State) ->
     NewDnsList=[DnsInfo||DnsInfo<-DnsList,
 		      (timer:now_diff(Now,DnsInfo#dns_info.time_stamp)/1000)<?INACITIVITY_TIMEOUT],
     NewState=State#state{dns_list=NewDnsList},
+    io:format("Services availible  ~p~n",[{?MODULE,?LINE,NewDnsList}]),
     Reply=ok,
    {reply, Reply, NewState};
     
@@ -167,7 +168,7 @@ handle_call(Request, From, State) ->
 %% --------------------------------------------------------------------
 
 handle_cast({dns_register,DnsInfo}, State) ->
-    io:format("~p~n",[{?MODULE,?LINE,register,DnsInfo}]),
+  %  io:format("~p~n",[{?MODULE,?LINE,register,DnsInfo}]),
     DnsList=State#state.dns_list,
     NewDnsList=dns_lib:dns_register(DnsInfo,DnsList),
     NewState=State#state{dns_list=NewDnsList},
@@ -175,7 +176,7 @@ handle_cast({dns_register,DnsInfo}, State) ->
     {noreply, NewState};
 
 handle_cast({de_dns_register,DnsInfo}, State) ->
-%    io:format("~p~n",[{?MODULE,?LINE,de_register,InitArgs}]),
+    io:format("~p~n",[{?MODULE,?LINE,de_register,DnsInfo}]),
     DnsList=State#state.dns_list,
     NewDnsList=dns_lib:de_dns_register(DnsInfo,DnsList),
     NewState=State#state{dns_list=NewDnsList},

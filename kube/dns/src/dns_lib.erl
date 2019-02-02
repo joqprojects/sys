@@ -83,13 +83,16 @@ get_instances(WantedServiceStr,DnsList)->
     Reply.
 
 get_instances(WantedServiceStr,WantedVsnStr,DnsList)->
+%    io:format(" get_instances ~p~n",[{?MODULE,?LINE,WantedServiceStr,WantedVsnStr,DnsList}]),
     Reply=case WantedVsnStr of
 	      latest->
 		  I1=[{DnsInfo#dns_info.vsn,DnsInfo}||DnsInfo<-DnsList, {WantedServiceStr}=:={DnsInfo#dns_info.service_id}],
+%		  io:format(" ~p~n",[{?MODULE,?LINE,WantedServiceStr,WantedVsnStr,I1}]),
 		  get_latest(I1,[]);
 	      WantedVsnStr->
 		  [DnsInfo||DnsInfo<-DnsList, {WantedServiceStr,WantedVsnStr}=:={DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}]
 	  end,
+ %   io:format(" ~p~n",[{?MODULE,?LINE,Reply,WantedServiceStr,WantedVsnStr}]),
     Reply.
 
 

@@ -68,9 +68,10 @@ delete(Name,Vsn)->
 all(Name)-> 
     gen_server:call(?MODULE, {all,Name},infinity).
 
+%--------------------------------------------------------------------
 
 heart_beat()-> 
-    gen_server:call(?MODULE, {heart_beat},infinity).
+    gen_server:cast(?MODULE, {heart_beat}).
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -116,8 +117,8 @@ init([]) ->
 			ip_addr=MyIp,
 			port=Port
 		       },
-%    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),   
- %   if_dns:cast("controller",{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),
+%    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}),   
+ %   if_dns:cast("controller",{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort}),
   %  rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Service Started ~p~n",[{?MODULE, ?LINE}]),
@@ -154,15 +155,6 @@ handle_call({delete,Name,Vsn}, _From, State) ->
     {reply, Reply, State};
 
 
-handle_call({heart_beat}, _From, State) ->
-    DnsInfo=State#state.dns_info,
-    {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),   
-    if_dns:cast("controller",latest,{controller,dns_register,[DnsInfo]},{DnsIp,DnsPort},1),
-    rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
-    Reply=ok,
-   {reply, Reply, State};
-
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
@@ -177,6 +169,12 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_cast({heart_beat}, State) ->
+    DnsInfo=State#state.dns_info,
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}),   
+ %   rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
+   {noreply, State};
 
 handle_cast(Msg, State) ->
     io:format("unmatched match cast ~p~n",[{Msg,?MODULE,time()}]),

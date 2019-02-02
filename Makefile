@@ -122,6 +122,10 @@ build:
 	cp ebin/dns/* test/system_node/kubelet_ebin;
 	cp ebin/repository/* test/system_node/kubelet_ebin;
 	cp ebin/catalog/* test/system_node/kubelet_ebin;
+#wcontroller_node
+	cp ebin/kubelet/* test/controller_node/kubelet_ebin;
+	cp ebin/lib/* test/controller_node/lib_ebin;
+	cp ebin/controller/* test/controller_node/kubelet_ebin;
 #workers
 	cp ebin/kubelet/* test/w1/kubelet_ebin;
 	cp ebin/lib/* test/w1/lib_ebin;
