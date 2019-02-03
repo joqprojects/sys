@@ -24,62 +24,43 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([test_call/3,call/3,call/4,cast/3,server_seq/1,server_parallel/1,par_connect/1]).
+-export([test_call/2,test_call/3,test_cast/2,
+	 server_seq/1,server_parallel/1,par_connect/1]).
 
+%% --------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+test_call(Addresses,{os,cmd,A})->
+    test_send_call(Addresses,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],?TIMEOUT_TCPCLIENT,noresult);
+test_call(Addresses,{M,F,A})->
+    test_send_call(Addresses,[call,{M,F,A},?KEY_MSG],?TIMEOUT_TCPCLIENT,noresult).
 
-%%
-%% API Function
-%%
-% call(RecIpAddr,RecPort,{M,F,A},{SenderIpAddr,SenderPort,SenderModule,SenderLine})->
-%timeout
-%call(IpAddr,Port,{os,cmd,A},SenderInfo,TimeOut)->
- %   send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],SenderInfo,TimeOut);
-%call(IpAddr,Port,{M,F,A},SenderInfo,TimeOut)->
- %   send_call(IpAddr,Port,[{M,F,A},?KEY_MSG],SenderInfo,TimeOut).
-
-% standard timeout
-%call(IpAddr,Port,{os,cmd,A},SenderInfo)->
- %   send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],SenderInfo,?TIMEOUT_TCPCLIENT);
-%call(IpAddr,Port,{M,F,A},SenderInfo)->
- %   send_call(IpAddr,Port,[{M,F,A},?KEY_MSG],SenderInfo,?TIMEOUT_TCPCLIENT).
-
-%send_call(Addr,Port,Msg,SenderInfo,TimeOut)->
- %   case gen_tcp:connect(Addr,Port,?CLIENT_SETUP) of
-%	{ok,Socket}->
-	  %  io:format("ok Socket  ~p~n",[{?MODULE,?LINE,Addr,Port,Msg,inet:socknames(Socket)}]),
-%	    ok=gen_tcp:send(Socket,term_to_binary(Msg)),
-%	    receive
-%		{tcp,Socket,Bin}->
-%		    Result=binary_to_term(Bin),
-		    %io:format("send Result ~p~n",[{?MODULE,?LINE,Result,inet:socknames(Socket)}]),	    
-%		    gen_tcp:close(Socket);
-%		{error,Err} ->
-%		    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg}]),
-%		    Result={error,[?MODULE,?LINE,Err,SenderInfo]},
-%		    gen_tcp:close(Socket)
-%	    after TimeOut  ->
-%%%%%		    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,Addr,Port,Msg,SenderInfo}]),
-%		    Result={error,[?MODULE,?LINE,tcp_timeout,Addr,Port,Msg,SenderInfo]},
-%		    gen_tcp:close(Socket)
-%	    end;
-%	{error,Err} ->
-%	    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg,SenderInfo}]),
-%	    Result={error,{Err,?MODULE,?LINE}}
- %   end,	
-  %  Result.
-
-%%------------------------------------------------------------------------------------------------    
+test_call(Addresses,{os,cmd,A},TimeOut)->
+    test_send_call(Addresses,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],TimeOut,noresult);
 test_call(Addresses,{M,F,A},TimeOut)->
-    test_call(Addresses,{M,F,A},TimeOut,noresult).
+    test_send_call(Addresses,[call,{M,F,A},?KEY_MSG],TimeOut,noresult).
 
-test_call([],_,_,Reply)->
-    io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
+%% --------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
+test_send_call([],_,_,Reply)->
+   % io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
     Reply;
-test_call([{IpAddr,Port}|T],{M,F,A},TimeOut,Result)->
-     io:format("test_call ~p~n",[{?MODULE,?LINE,IpAddr,Port,{M,F,A},Result}]),
+%test_send_call([{IpAddr,Port}|T],Msg,TimeOut,Result)->
+ %   io:format(" test_call ~p~n",[{?MODULE,?LINE,IpAddr,Port,Msg,TimeOut,Result}]);
+%test_send_call(Glurk,Msg,TimeOut,Result)->
+test_send_call([{IpAddr,Port}|T],Msg,TimeOut,Result)->
+  %  io:format("test_call ~p~n",[{?MODULE,?LINE,{IpAddr,Port},Msg,TimeOut,Result}]),
     case gen_tcp:connect(IpAddr,Port,?CLIENT_SETUP) of
 	{ok,Socket}->
-	    Msg=[call,{M,F,A},?KEY_MSG],
 	    case gen_tcp:send(Socket,term_to_binary(Msg)) of
 		ok->
 		    receive
@@ -88,93 +69,80 @@ test_call([{IpAddr,Port}|T],{M,F,A},TimeOut,Result)->
 			    gen_tcp:close(Socket),
 			    Retry=false;
 			{error,Err} ->
-			    io:format("send error ~p~n",[{?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}}]),
+			    io:format("send error ~p~n",[{?MODULE,?LINE,Err,IpAddr,Port,Msg}]),
 			    NewResult={error,[?MODULE,?LINE,Err]},
 			    gen_tcp:close(Socket),
 			    Retry=true
 		    after TimeOut ->
-			    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,IpAddr,Port,{M,F,A}}]),
-			    NewResult={error,[?MODULE,?LINE,tcp_timeout,IpAddr,Port,{M,F,A}]},
+			    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,IpAddr,Port,Msg}]),
+			    NewResult={error,[?MODULE,?LINE,tcp_timeout,IpAddr,Port,Msg]},
 			    gen_tcp:close(Socket),
 			    Retry=true
 		    end;
 		{error,Err}->
 		    Retry=true,
-		    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}]}
+		    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,Msg]}
 	    end;
 	{error,Err}->
 	    Retry=true,
-	    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,{M,F,A}]}
+	    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,Msg]}
     end,
     case Retry of
 	true->
-	    Reply=test_call(T,{M,F,A},TimeOut,NewResult);
+	    Reply=test_send_call(T,Msg,TimeOut,NewResult);
 	false ->
 	    Reply=NewResult
     end,
     Reply.
     
+%% --------------------------------------------------------------------
+%% Function: handle_info/2
+%% Description: Handling all non call/cast messages
+%% Returns: {noreply, State}          |
+%%          {noreply, State, Timeout} |
+%%          {stop, Reason, State}            (terminate/2 is called)
+%% --------------------------------------------------------------------
 
    
+test_cast(Addresses,{os,cmd,A})->
+    test_send_cast(Addresses,[cast,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],noresult);
+test_cast(Addresses,{M,F,A})->
+    test_send_cast(Addresses,[cast,{M,F,A},?KEY_MSG],noresult).
+
+test_send_cast([],_,Reply)->
+  %  io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
+    Reply;
+test_send_cast([{IpAddr,Port}|T],Msg=[cast,{M,F,A},?KEY_MSG],Result)->
+ %    io:format("test_call ~p~n",[{?MODULE,?LINE,{IpAddr,Port},Msg,Result}]),
+    case gen_tcp:connect(IpAddr,Port,?CLIENT_SETUP) of
+	{ok,Socket}->
+	    case gen_tcp:send(Socket,term_to_binary(Msg)) of
+		ok->
+		    NewResult=ok,
+		    Retry=false,
+		    gen_tcp:close(Socket);
+		{error,Err}->
+		    Retry=true,
+		    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,Msg]}
+	    end;
+	{error,Err}->
+	    
+	    Retry=true,
+	    NewResult={error,[?MODULE,?LINE,Err,IpAddr,Port,Msg]}
+    end,
+    case Retry of
+	true->
+	    Reply=test_send_cast(T,Msg,NewResult);
+	false ->
+	    Reply=NewResult
+    end,
+    Reply.
+
 %% --------------------------------------------------------------------
 %% Function: fun/x
 %% Description: fun x skeleton 
 %% Returns:ok|error
 %% --------------------------------------------------------------------
-call(IpAddr,Port,{os,cmd,A},TimeOut)->
-    send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],TimeOut);
-call(IpAddr,Port,{M,F,A},TimeOut)->
-    send_call(IpAddr,Port,[call,{M,F,A},?KEY_MSG],TimeOut).
-
-call(IpAddr,Port,{os,cmd,A})->
-    send_call(IpAddr,Port,[call,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG],?TIMEOUT_TCPCLIENT);
-call(IpAddr,Port,{M,F,A})->
-    send_call(IpAddr,Port,[call,{M,F,A},?KEY_MSG],?TIMEOUT_TCPCLIENT).
-
-
-
-send_call(Addr,Port,Msg,TimeOut)->
-    case gen_tcp:connect(Addr,Port,?CLIENT_SETUP) of
-	{ok,Socket}->
-	  %  io:format("ok Socket  ~p~n",[{?MODULE,?LINE,Addr,Port,Msg,inet:socknames(Socket)}]),
-	    ok=gen_tcp:send(Socket,term_to_binary(Msg)),
-	    receive
-		{tcp,Socket,Bin}->
-		    Result=binary_to_term(Bin),
-		    gen_tcp:close(Socket);
-		{error,Err} ->
-		    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg}]),
-		    Result={error,[?MODULE,?LINE,Err]},
-		    gen_tcp:close(Socket)
-	    after TimeOut ->
-		    io:format("send error ~p~n",[{?MODULE,?LINE,time_out,Addr,Port,Msg}]),
-		    Result={error,[?MODULE,?LINE,tcp_timeout,Addr,Port,Msg]},
-		    gen_tcp:close(Socket)
-	    end;
-	{error,Err} ->
-	    io:format("send error ~p~n",[{?MODULE,?LINE,Err,Addr,Port,Msg}]),
-	    Result={error,{Err,?MODULE,?LINE}}
-    end,
-    Result.
-
-cast(IpAddr,Port,{os,cmd,A})->
-    send_cast(IpAddr,Port,[cast,{?KEY_M_OS_CMD,?KEY_F_OS_CMD,A},?KEY_MSG]);
-cast(IpAddr,Port,{M,F,A})->
-    send_cast(IpAddr,Port,[cast,{M,F,A},?KEY_MSG]).
-
-
-send_cast(Addr,Port,Msg)->
- %   io:format(" ~p~n",[{?MODULE,?LINE,Msg}]),
-    case gen_tcp:connect(Addr,Port,?CLIENT_SETUP) of
-	{ok,Socket}->
-	    Result=ok,
-		%  io:format(" ~p~n",[{?MODULE,?LINE,Msg}]),
-		% ok=gen_tcp:send(Socket,term_to_binary(Msg)),
-	    Result=gen_tcp:send(Socket,term_to_binary(Msg));
-	{error,Err} ->
-	    Result={error,{Err,?MODULE,?LINE}}
-    end,	
-    Result.   
 
 % Receive part
 %% --------------------------------------------------------------------
