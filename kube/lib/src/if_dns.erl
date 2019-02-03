@@ -38,12 +38,12 @@ call(ServiceId,Vsn,{M,F,A},{DnsIp,DnsPort},TimeOut)->
 	       "dns"->
 		   tcp:test_call([{DnsIp,DnsPort}],{M,F,A},TimeOut);
 	       _->
-		   case tcp:call([{DnsIp,DnsPort}],{dns,get_instances,[ServiceId,Vsn]}) of
+		   case tcp:test_call([{DnsIp,DnsPort}],{dns,get_instances,[ServiceId,Vsn]}) of
 		       {error,Err}->
 			   io:format("Error ~p~n",[{?MODULE,?LINE,Err}]),
 			   {error,[?MODULE,?LINE,Err]};
 		       []->
-			   io:format("Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
+			   %io:format("Error ~p~n",[{?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn}]),
 			   {error,[?MODULE,?LINE,'no availible nodes ',ServiceId,Vsn]};
 		       {badrpc,Err}->
 			   io:format("Error ~p~n",[{?MODULE,?LINE,Err}]),

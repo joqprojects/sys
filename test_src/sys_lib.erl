@@ -35,26 +35,27 @@ start()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
+demo(0)->
+ {ok,'test ended'};
 demo(N)->
+   % io:format("This demo shows how Sorry No services availible: (1000-N)=  ~p~n",[1000-N])
     if_dns:call("controller",latest,{controller,add,["mymath","1.0.0"]},{"80.216.3.159",60000}),  
     demo_loop(N).
-
+demo_loop(0)->
+ {ok,'test ended'};
 demo_loop(N)->
     TimeOut=5*1000,
-    case if_dns:call("dns",latest,{dns,get_instances,["adder","1.0.0"]},{"80.216.3.159",60000},TimeOut) of
-	{error,_}=X ->
+    
+    case if_dns:call("adder",latest,{adder,add,[N,1000]},{"80.216.3.159",60000},TimeOut) of
+	{error,_} ->
 	    NewN=N,
-	    io:format("Error no service availible = ~p~n",[{X}]);
-	Instances->
-	    Addresses=[{DnsInfo#dns_info.ip_addr,DnsInfo#dns_info.port}||DnsInfo<-Instances],
-	    case tcp:test_call(Addresses,{adder,add,[N,1000]},TimeOut) of
-		noresult->
-		    NewN=N,
-		    io:format("Error no service availible ~n");
-		R->
-		    NewN=N+1,
-		    io:format("N+1000 = ~p~n",[R])
-	    end
+	    io:format("Sorry No services availible: (1000+N)=  ~p~n",[{'Result=',1000+N,', N=',N}]);
+	{badrpc,_} ->
+	    NewN=N,
+	    io:format("Sorry No services availible: (1000+N)=  ~p~n",[{'Result=',1000+N,', N=',N}]);
+	R->
+	    NewN=N-1,
+	    io:format("1000+N ~p~n",[{'Result=',R,', N=',N}])
     end,	   
     timer:sleep(3000),
     demo_loop(NewN).

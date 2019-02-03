@@ -146,14 +146,14 @@ de_dns_register(DnsInfo)->
 %%
 %% --------------------------------------------------------------------
 init([]) ->
-    io:format("  ~p~n",[{?MODULE,?LINE}]),
+ %   io:format("  ~p~n",[{?MODULE,?LINE}]),
     {ok,MyIp}=application:get_env(ip_addr),
     {ok,Port}=application:get_env(port),
     {ok,ServiceId}=application:get_env(service_id),
     {ok,Vsn}=application:get_env(vsn),
     {ok,DnsIp}=application:get_env(dns_ip_addr),
     {ok,DnsPort}=application:get_env(dns_port),
-    io:format("  ~p~n",[{?MODULE,?LINE}]),
+  %  io:format("  ~p~n",[{?MODULE,?LINE}]),
     DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
