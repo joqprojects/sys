@@ -49,7 +49,7 @@ start_link()->
 %%          ignore                          |
 %%          {error, Reason}
 %% --------------------------------------------------------------------
-init(Args) ->
+init(_Args) ->
     {ok,{{one_for_one,5,10}, 
 	 [?CHILD(kubelet,worker)]}}.
 

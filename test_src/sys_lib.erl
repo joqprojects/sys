@@ -103,16 +103,13 @@ do_b_test()->
 do_b_test(0)->
     ok;
 do_b_test(N)->
+    io:format("Add application ~p~n",[{?MODULE,?LINE}]),
     if_dns:call("controller",latest,{controller,add,["mymath","1.0.0"]},{"80.216.3.159",60000}),  
-    Self=self(),
-    _Pid=spawn(fun()->do_add(false,Self) end),
-    receive
-	{_,R}->
-	    io:format("  ~p~n",[{?MODULE,?LINE,R}])
-    end,
+    demo_loop(1),
     timer:sleep(1*10),
+    io:format("Remove application ~p~n",[{?MODULE,?LINE}]),
     if_dns:call("controller",latest,{controller,remove,["mymath","1.0.0"]},{"80.216.3.159",60000}), 
- %   timer:sleep(1*1000),
+    timer:sleep(5*1000),
     do_b_test(N-1).
 
 

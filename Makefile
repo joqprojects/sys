@@ -32,10 +32,10 @@ build:
 	cp kube/controller/src/*.app ebin/controller;
 	cp kube/controller/src/*.josca ebin/controller;
 #etcd
-	erlc -o ebin/etcd kube/etcd/src/*.erl;
-	cp kube/etcd/src/*.app ebin/etcd;
+#	erlc -o ebin/etcd kube/etcd/src/*.erl;
+#	cp kube/etcd/src/*.app ebin/etcd;
 #	cp kube/kubelet/src/*.josca ebin/kubelet/ebin;
-	cp kube/etcd/src/* ebin/etcd;
+#	cp kube/etcd/src/* ebin/etcd;
 #catalog
 	erlc -o ebin/catalog kube/catalog/src/*.erl;
 	cp kube/catalog/src/*.app ebin/catalog;
@@ -77,8 +77,8 @@ build:
 	cp ebin/controller/* test/controller/service_ebin;
 	cp ebin/lib/* test/controller/lib_ebin;
 #etcd
-	cp ebin/kubelet/* test/etcd/kubelet_ebin;
-	cp ebin/etcd/* test/etcd/service_ebin;
+#	cp ebin/kubelet/* test/etcd/kubelet_ebin;
+#	cp ebin/etcd/* test/etcd/service_ebin;
 #repository
 	cp ebin/kubelet/* test/repository/kubelet_ebin;
 	cp ebin/lib/* test/repository/lib_ebin;

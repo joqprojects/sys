@@ -68,12 +68,6 @@ local_log_call(DnsInfo,Type,Info,_DnsList)->
 	   {event_type,Type},
 	   {event_info,Info}
 	  ],
-    %case dns_lib:get_instances("log","1.0.0",DnsList) of
-%	[{PublicIp,PublicPort,LocalIp,LocalPort}]->
-%	    ok=tcp:call(PublicIp,PublicPort,LocalIp,LocalPort,{log,add_event,[Event]});
-%	Err ->
-%	    io:format("Error ~p~n",[{?MODULE,?LINE,Err}])
- %   end.
     Event.
 
 
@@ -83,22 +77,19 @@ get_instances(WantedServiceStr,DnsList)->
     Reply.
 
 get_instances(WantedServiceStr,WantedVsnStr,DnsList)->
-%    io:format(" get_instances ~p~n",[{?MODULE,?LINE,WantedServiceStr,WantedVsnStr,DnsList}]),
     Reply=case WantedVsnStr of
 	      latest->
 		  I1=[{DnsInfo#dns_info.vsn,DnsInfo}||DnsInfo<-DnsList, {WantedServiceStr}=:={DnsInfo#dns_info.service_id}],
-%		  io:format(" ~p~n",[{?MODULE,?LINE,WantedServiceStr,WantedVsnStr,I1}]),
 		  get_latest(I1,[]);
 	      WantedVsnStr->
 		  [DnsInfo||DnsInfo<-DnsList, {WantedServiceStr,WantedVsnStr}=:={DnsInfo#dns_info.service_id,DnsInfo#dns_info.vsn}]
 	  end,
- %   io:format(" ~p~n",[{?MODULE,?LINE,Reply,WantedServiceStr,WantedVsnStr}]),
     Reply.
 
 
 get_latest([],Latest)->
     Latest;
-get_latest([{Vsn,DnsInfo}|T],Acc) ->
+get_latest([{Vsn,DnsInfo}|T],_Acc) ->
     LatestVsn=Vsn,
     NewAcc=[DnsInfo],
     get_2_latest(T,LatestVsn,NewAcc).

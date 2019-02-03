@@ -29,7 +29,7 @@
 
 
 
--export([mul/2,crash/0
+-export([mul/2
 	]).
 
 -export([start/0,
@@ -57,9 +57,6 @@ heart_beat()->
 %%-----------------------------------------------------------------------
 mul(A,B)->
     gen_server:call(?MODULE, {mul,A,B},infinity).
-
-crash()->
-    gen_server:call(?MODULE, {crash},infinity).
 
 %%-----------------------------------------------------------------------
 
@@ -138,8 +135,7 @@ handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
-    DnsInfo=State#state.dns_info,
-    io:format("unmatched match signal ~p~n",[{Request,DnsInfo,?MODULE,?LINE}]),
+     io:format("unmatched match signal ~p~n",[{Request,?MODULE,?LINE}]),
   %  if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Request,From]),
     Reply = {unmatched_signal,?MODULE,Request,From},
     {reply, Reply, State}.

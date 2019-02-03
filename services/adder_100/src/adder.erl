@@ -159,8 +159,6 @@ handle_call(Request, From, State) ->
 
 
 handle_cast(Msg, State) ->
-    DnsInfo=State#state.dns_info,
- %   if_log:call(DnsInfo,notification,[?MODULE,?LINE,'unmatched_signal',Msg]),
     io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
     {noreply, State}.
 

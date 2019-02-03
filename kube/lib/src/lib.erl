@@ -10,6 +10,8 @@
 %% Include files
 %% --------------------------------------------------------------------
 
+-include("kube/lib/src/lib_local.hrl").
+
 -include("kube/include/tcp.hrl").
 -include("kube/include/dns.hrl").
 -include("kube/include/data.hrl").
@@ -23,7 +25,7 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{dns_info}).
+
 
 %% --------------------------------------------------------------------
 %% Exported functions
@@ -83,14 +85,18 @@ init([]) ->
     {ok,Port}=application:get_env(port),
     {ok,ServiceId}=application:get_env(service_id),
     {ok,Vsn}=application:get_env(vsn),
-    MyDnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
+    {ok,DnsIp}=application:get_env(dns_ip_addr),
+    {ok,DnsPort}=application:get_env(dns_port),
+
+    DnsInfo=#dns_info{time_stamp="not_initiaded_time_stamp",
 			service_id = ServiceId,
 			vsn = Vsn,
 			ip_addr=MyIp,
 			port=Port
 		       },
-  %  spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
-    {ok, #state{dns_info=MyDnsInfo}}.
+     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
+     io:format("Service ~p~n",[{?MODULE, 'started ',?LINE}]),
+    {ok, #state{dns_info=DnsInfo,dns_addr={dns,DnsIp,DnsPort}}}. 
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -105,19 +111,15 @@ init([]) ->
 
 handle_call({heart_beat}, _From, State) ->
     DnsInfo=State#state.dns_info,
- %   if_dns:call("dns",dns,dns_register,[DnsInfo]),
-  %  rpc:cast(node(),kubelet,dns_register,[DnsInfo]),
-   % if_dns:call("contoller",controller,controller_register,[DnsInfo]),
-    Reply=ok,
-   {reply, Reply, State};
+    {dns,DnsIp,DnsPort}=State#state.dns_addr,
+    if_dns:cast("dns",latest,{dns,dns_register,[DnsInfo]},{DnsIp,DnsPort}),
+    {reply,ok, State};
     
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
-    DnsInfo=State#state.dns_info,
-   % if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Request,From]),	
-    Reply = {unmatched_signal,?MODULE,Request,From},
+     Reply = {unmatched_signal,?MODULE,Request,From},
     {reply, Reply, State}.
 
 %% --------------------------------------------------------------------
@@ -128,8 +130,7 @@ handle_call(Request, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast(Msg, State) ->
-   % DnsInfo=State#state.dns_info,
-   % if_log:call(DnsInfo,error,[?MODULE,?LINE,'unmatched_signal',Msg]),	
+    io:format("unmatched match cast ~p~n",[{time(),?MODULE,?LINE,Msg}]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------

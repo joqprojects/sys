@@ -52,13 +52,8 @@ test_call(Addresses,{M,F,A},TimeOut)->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 test_send_call([],_,_,Reply)->
-   % io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
-    Reply;
-%test_send_call([{IpAddr,Port}|T],Msg,TimeOut,Result)->
- %   io:format(" test_call ~p~n",[{?MODULE,?LINE,IpAddr,Port,Msg,TimeOut,Result}]);
-%test_send_call(Glurk,Msg,TimeOut,Result)->
-test_send_call([{IpAddr,Port}|T],Msg,TimeOut,Result)->
-  %  io:format("test_call ~p~n",[{?MODULE,?LINE,{IpAddr,Port},Msg,TimeOut,Result}]),
+     Reply;
+test_send_call([{IpAddr,Port}|T],Msg,TimeOut,_Result)->
     case gen_tcp:connect(IpAddr,Port,?CLIENT_SETUP) of
 	{ok,Socket}->
 	    case gen_tcp:send(Socket,term_to_binary(Msg)) of
@@ -110,10 +105,8 @@ test_cast(Addresses,{M,F,A})->
     test_send_cast(Addresses,[cast,{M,F,A},?KEY_MSG],noresult).
 
 test_send_cast([],_,Reply)->
-  %  io:format("test_call Reply ~p~n",[{?MODULE,?LINE,Reply}]),
     Reply;
-test_send_cast([{IpAddr,Port}|T],Msg=[cast,{M,F,A},?KEY_MSG],Result)->
- %    io:format("test_call ~p~n",[{?MODULE,?LINE,{IpAddr,Port},Msg,Result}]),
+test_send_cast([{IpAddr,Port}|T],Msg,_Result)->
     case gen_tcp:connect(IpAddr,Port,?CLIENT_SETUP) of
 	{ok,Socket}->
 	    case gen_tcp:send(Socket,term_to_binary(Msg)) of
@@ -190,17 +183,15 @@ single(Socket)->
 		    io:format("~p~n",[{?MODULE,?LINE,R}]),
 		    Reply=case R of
 			      {badrpc,Err}->
-				  {error,[?MODULE,?LINE,R]};
+				  {error,[?MODULE,?LINE,Err]};
 			      R->
 				  R
 			  end,
 		    gen_tcp:send(Socket,term_to_binary(Reply)),
 		    single(Socket);
 		[{cast,{M,F,A}},?KEY_MSG]->
-			%   io:format(" ~p~n",[{?MODULE,?LINE,{cast,{M,F,A}}}]),
 		    _A=rpc:cast(node(),M,F,A),
 		    gen_tcp:close(Socket);
-		%  io:format("Error ~p~n",[{?MODULE,?LINE,A}]);
 		Err->
 		    io:format("Error ~p~n",[{?MODULE,?LINE,Err}])
 	    end;

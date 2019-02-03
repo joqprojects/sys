@@ -216,11 +216,8 @@ stop_unload_app(DnsInfo,State)->
     Appfile=filename:join(Ebin,AppFileBaseName),
     ok=file:delete(Appfile),
     DeleteResult=[file:delete(filename:join(Ebin,ModuleName))||{ModuleName,_}<-Modules], 
-   % if_dns:call("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0),
     if_dns:cast("dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}),
- %  rpc:cast(node(),if_dns,call,["dns",latest,{dns,de_dns_register,[DnsInfo]},{DnsIp,DnsPort}]),
- %  rpc:cast(node(),if_dns,call,["controller",latest,{controller,de_dns_register,[DnsInfo]},{DnsIp,DnsPort},1,0]),
-    
+  
     Reply=case [Y||Y<-DeleteResult,false=={Y=:=ok}] of
 	      []->
 		  ok;
@@ -261,8 +258,7 @@ capabilities()->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort})->  % VsnInput Can be latest !!!
-
+load_appfiles(ServiceId,VsnInput,_,_,{DnsIp,DnsPort})->  % VsnInput Can be latest !!!
     Ebin=case ServiceId of
 	     "lib"->
 		 "lib_ebin";
@@ -277,21 +273,16 @@ load_appfiles(ServiceId,VsnInput,NodeIp,NodePort,{DnsIp,DnsPort})->  % VsnInput 
 	     _->
 		 ?SERVICE_EBIN
       end,   
- %   io:format("~p~n",[{?MODULE,?LINE,ServiceId,VsnInput}]),
     Artifact=if_dns:call("repo",latest,{repo,read_artifact,[ServiceId,VsnInput]},{DnsIp,DnsPort}),
- %   io:format("~p~n",[{?MODULE,?LINE,Artifact}]),
     #artifact{service_id=ServiceId,
-	      vsn=Vsn,
+	      vsn=_Vsn,
 	      appfile={AppFileBaseName,AppBinary},
 	      modules=Modules
 	     }=Artifact,
-  %  io:format("~p~n",[{?MODULE,?LINE}]),
     Appfile=filename:join(Ebin,AppFileBaseName),
     ok=file:write_file(Appfile,AppBinary),
-   % io:format("~p~n",[{?MODULE,?LINE}]),
     [file:write_file(filename:join(Ebin,ModuleName),Bin)||{ModuleName,Bin}<-Modules],
-   % io:format("~p~n",[{?MODULE,?LINE}]),
-    {ok,Artifact}.
+     {ok,Artifact}.
     
 %% --------------------------------------------------------------------
 %% Function: 
@@ -305,7 +296,7 @@ upgrade(ServiceId,Vsn,NodeIp,NodePort,{DnsIp,DnsPort})->
     Artifact=load_appfiles(ServiceId,Vsn,NodeIp,NodePort,{DnsIp,DnsPort}),
     #artifact{service_id=ServiceId,
 	      vsn=Vsn,
-	      appfile={AppFileBaseName,AppBinary},
+	      appfile={_AppFileBaseName,_AppBinary},
 	      modules=Modules
 	     }=Artifact,
     GenServerModule=list_to_atom(ServiceId),  

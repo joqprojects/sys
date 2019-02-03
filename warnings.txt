@@ -1,0 +1,150 @@
+rm -rf ebin/*/*;
+rm -rf kube/*/src/*~ kube/*/test_src/*~ kube/*/*.dump kube/*~ kube/*/*~;
+rm -rf services/*/src/*~ services/*/test_src/*~ services/*/*.dump services/*~ services/*/*~;
+rm -rf test/*/kubelet_ebin/* test/*/service_ebin/* test/*/lib_ebin/*  ;
+erlc -o ebin/lib kube/lib/src/*.erl;
+kube/lib/src/cmn.erl:137: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/lib/src/lib.erl:122: Warning: variable 'DnsInfo' is unused
+kube/lib/src/lib.erl:134: Warning: variable 'Msg' is unused
+kube/lib/src/tcp.erl:60: Warning: variable 'Result' is unused
+kube/lib/src/tcp.erl:115: Warning: variable 'A' is unused
+kube/lib/src/tcp.erl:115: Warning: variable 'F' is unused
+kube/lib/src/tcp.erl:115: Warning: variable 'M' is unused
+kube/lib/src/tcp.erl:115: Warning: variable 'Result' is unused
+kube/lib/src/tcp.erl:192: Warning: variable 'Err' is unused
+cp kube/lib/src/*.app ebin/lib;
+cp kube/lib/src/*.josca ebin/lib;
+erlc -o ebin/dns kube/dns/src/*.erl;
+kube/dns/src/dns.erl:144: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/dns/src/dns_lib.erl:38: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/dns/src/dns_lib.erl:101: Warning: variable 'Acc' is unused
+cp kube/dns/src/*.app ebin/dns;
+cp kube/dns/src/*.josca ebin/dns;
+erlc -o ebin/log kube/log/src/*.erl;
+cp kube/log/src/*.app ebin/log;
+cp kube/log/src/*.josca ebin/log;
+erlc -o ebin/controller kube/controller/src/*.erl;
+kube/controller/src/controller.erl:129: Warning: function dns_register/1 is unused
+kube/controller/src/controller.erl:131: Warning: function de_dns_register/1 is unused
+kube/controller/src/controller.erl:255: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/controller/src/controller.erl:332: Warning: variable 'Info' is unused
+kube/controller/src/controller_lib.erl:111: Warning: variable 'StartResult' is unused
+kube/controller/src/controller_lib.erl:113: Warning: variable 'StartResult' is unused
+kube/controller/src/controller_lib.erl:125: Warning: variable 'StopResult' is unused
+kube/controller/src/controller_lib.erl:156: Warning: variable 'Service' is unused
+kube/controller/src/controller_lib.erl:157: Warning: variable 'Ip' is unused
+kube/controller/src/controller_lib.erl:158: Warning: variable 'P' is unused
+kube/controller/src/controller_lib.erl:160: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/controller/src/controller_lib.erl:186: Warning: variable 'Service' is unused
+kube/controller/src/controller_lib.erl:187: Warning: variable 'Ip' is unused
+kube/controller/src/controller_lib.erl:188: Warning: variable 'P' is unused
+kube/controller/src/controller_lib.erl:191: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/controller/src/controller_lib.erl:235: Warning: a term is constructed, but never used
+kube/controller/src/controller_lib.erl:235: Warning: variable 'R1' is unused
+kube/controller/src/controller_lib.erl:302: Warning: variable 'AvailibleServices' is unused
+kube/controller/src/controller_lib.erl:302: Warning: variable 'WantedNumInstances' is unused
+kube/controller/src/controller_lib.erl:389: Warning: variable 'Err' is unused
+erlc -o test_ebin kube/controller/test_src/*.erl;
+cp kube/controller/src/*.app ebin/controller;
+cp kube/controller/src/*.josca ebin/controller;
+erlc -o ebin/etcd kube/etcd/src/*.erl;
+kube/etcd/src/etcd.erl:157: Warning: variable 'ServiceInfo' is unused
+kube/etcd/src/etcd.erl:207: Warning: format string invalid (truncated)
+kube/etcd/src/etcd.erl:208: Warning: format string invalid (truncated)
+kube/etcd/src/etcd.erl:209: Warning: format string invalid (truncated)
+cp kube/etcd/src/*.app ebin/etcd;
+cp kube/etcd/src/* ebin/etcd;
+erlc -o ebin/catalog kube/catalog/src/*.erl;
+kube/catalog/src/catalog_lib.erl:40: Warning: format string invalid (truncated)
+cp kube/catalog/src/*.app ebin/catalog;
+cp kube/catalog/src/* ebin/catalog;
+erlc -o ebin/repository kube/repository/src/*.erl;
+kube/repository/src/repo_lib.erl:99: Warning: variable 'VsnList' is unused
+cp kube/repository/src/*.app ebin/repository;
+cp kube/repository/src/* ebin/repository;
+erlc -o ebin/kubelet kube/kubelet/src/*.erl;
+kube/kubelet/src/kubelet.erl:81: Warning: function dns_register/1 is unused
+kube/kubelet/src/kubelet.erl:83: Warning: function de_dns_register/1 is unused
+kube/kubelet/src/kubelet.erl:138: Warning: a term is constructed, but never used
+kube/kubelet/src/kubelet.erl:138: Warning: variable 'SenderInfo' is unused
+kube/kubelet/src/kubelet.erl:140: Warning: a term is constructed, but never used
+kube/kubelet/src/kubelet.erl:183: Warning: variable 'DnsList' is unused
+kube/kubelet/src/kubelet.erl:234: Warning: variable 'DnsList' is unused
+kube/kubelet/src/kubelet.erl:237: Warning: variable 'NodeIp' is unused
+kube/kubelet/src/kubelet.erl:238: Warning: variable 'NodePort' is unused
+kube/kubelet/src/kubelet.erl:240: Warning: variable 'R' is unused
+kube/kubelet/src/kubelet.erl:311: Warning: variable 'Info' is unused
+kube/kubelet/src/kubelet_lib.erl:39: Warning: erlang:now/0: Deprecated BIF. See the "Time and Time Correction in Erlang" chapter of the ERTS User's Guide for more information.
+kube/kubelet/src/kubelet_lib.erl:264: Warning: variable 'NodeIp' is unused
+kube/kubelet/src/kubelet_lib.erl:264: Warning: variable 'NodePort' is unused
+kube/kubelet/src/kubelet_lib.erl:284: Warning: variable 'Vsn' is unused
+kube/kubelet/src/kubelet_lib.erl:308: Warning: variable 'AppBinary' is unused
+kube/kubelet/src/kubelet_lib.erl:308: Warning: variable 'AppFileBaseName' is unused
+kube/kubelet/src/kubelet_sup.erl:52: Warning: variable 'Args' is unused
+cp kube/kubelet/src/*.app ebin/kubelet;
+cp kube/kubelet/src/* ebin/kubelet;
+erlc -o ebin/adder_100 services/adder_100/src/*.erl;
+services/adder_100/src/adder.erl:127: Warning: this expression will fail with a 'badarith' exception
+services/adder_100/src/adder.erl:162: Warning: variable 'DnsInfo' is unused
+cp services/adder_100/src/*.app ebin/adder_100;
+cp services/adder_100/src/*.josca ebin/adder_100;
+erlc -o ebin/subtract_100 services/subtract_100/src/*.erl;
+cp services/subtract_100/src/*.app ebin/subtract_100;
+cp services/subtract_100/src/*.josca ebin/subtract_100;
+erlc -o ebin/divider_100 services/divider_100/src/*.erl;
+cp services/divider_100/src/*.app ebin/divider_100;
+cp services/divider_100/src/*.josca ebin/divider_100;
+erlc -o ebin/multi_100 services/multi_100/src/*.erl;
+services/multi_100/src/multi.erl:123: Warning: this expression will fail with a 'badarith' exception
+cp services/multi_100/src/*.app ebin/multi_100;
+cp services/multi_100/src/*.josca ebin/multi_100;
+cp ebin/kubelet/* test/controller/kubelet_ebin;
+cp ebin/controller/* test/controller/service_ebin;
+cp ebin/lib/* test/controller/lib_ebin;
+cp ebin/kubelet/* test/etcd/kubelet_ebin;
+cp ebin/etcd/* test/etcd/service_ebin;
+cp ebin/kubelet/* test/repository/kubelet_ebin;
+cp ebin/lib/* test/repository/lib_ebin;
+cp ebin/repository/* test/repository/service_ebin;
+cp ebin/kubelet/* test/catalog/kubelet_ebin;
+cp ebin/lib/* test/catalog/lib_ebin;
+cp ebin/catalog/* test/catalog/service_ebin;
+cp ebin/kubelet/* test/dns/kubelet_ebin;
+cp ebin/lib/* test/dns/lib_ebin;
+cp ebin/dns/* test/dns/service_ebin;
+cp ebin/kubelet/* test/w10/kubelet_ebin;
+cp ebin/lib/* test/w10/lib_ebin;
+cp ebin/dns/* test/w10/kubelet_ebin;
+cp ebin/kubelet/* test/w11/kubelet_ebin;
+cp ebin/lib/* test/w11/lib_ebin;
+cp ebin/controller/* test/w11/kubelet_ebin;
+cp ebin/kubelet/* test/w100/kubelet_ebin;
+cp ebin/lib/* test/w100/lib_ebin;
+cp ebin/repository/* test/w100/kubelet_ebin;
+cp ebin/kubelet/* test/w101/kubelet_ebin;
+cp ebin/lib/* test/w101/lib_ebin;
+cp ebin/catalog/* test/w101/kubelet_ebin;
+cp ebin/kubelet/* test/w200/kubelet_ebin;
+cp ebin/lib/* test/w200/lib_ebin;
+cp ebin/kubelet/* test/w201/kubelet_ebin;
+cp ebin/lib/* test/w201/lib_ebin;
+cp ebin/kubelet/* test/w202/kubelet_ebin;
+cp ebin/lib/* test/w202/lib_ebin;
+cp ebin/kubelet/* test/system_node/kubelet_ebin;
+cp ebin/lib/* test/system_node/lib_ebin;
+cp ebin/dns/* test/system_node/kubelet_ebin;
+cp ebin/repository/* test/system_node/kubelet_ebin;
+cp ebin/catalog/* test/system_node/kubelet_ebin;
+cp ebin/kubelet/* test/controller_node/kubelet_ebin;
+cp ebin/lib/* test/controller_node/lib_ebin;
+cp ebin/controller/* test/controller_node/kubelet_ebin;
+cp ebin/kubelet/* test/w1/kubelet_ebin;
+cp ebin/lib/* test/w1/lib_ebin;
+cp ebin/kubelet/* test/w2/kubelet_ebin;
+cp ebin/lib/* test/w2/lib_ebin;
+cp ebin/kubelet/* test/w3/kubelet_ebin;
+cp ebin/lib/* test/w3/lib_ebin;
+cp ebin/kubelet/* test/w4/kubelet_ebin;
+cp ebin/lib/* test/w4/lib_ebin;
+echo ++  build_succeded +++++++++++
+++ build_succeded +++++++++++

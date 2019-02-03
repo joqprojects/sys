@@ -37,7 +37,7 @@ all(Name,DbaseId)->
 	      [{Name,{{latest,_VsnLatest},BinList}}]->
 		  BinList;
 	      Err ->
-		  io:format("p~n~",[{?MODULE,?LINE,Err}]),
+		  io:format("~p~n",[{?MODULE,?LINE,Err}]),
 		  Err
 	  end,
     Reply.

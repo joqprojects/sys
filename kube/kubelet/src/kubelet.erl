@@ -40,8 +40,6 @@
 	 upgrade/2,
 	 loaded_services/0,
 	 my_ip/0,
-	% dns_register/1,
-	% de_dns_register/1,
 	 start_kubelet/0,
 	 heart_beat/0
 	]).
@@ -78,11 +76,6 @@ loaded_services()->
 
 
 %%-----------------------------------------------------------------------
-dns_register(DnsInfo)-> 
-    gen_server:cast(?MODULE, {dns_register,DnsInfo}).
-de_dns_register(DnsInfo)-> 
-    gen_server:cast(?MODULE, {de_dns_register,DnsInfo}).
-
 upgrade(ServiceId,Vsn)-> 
     gen_server:cast(?MODULE, {ServiceId,Vsn}).
 
@@ -127,18 +120,7 @@ init([]) ->
 
    {ok, LSock} = gen_tcp:listen(NodePort,?SERVER_SETUP),
     Workers=init_workers(LSock,MaxWorkers,[]), % Glurk remove?
-
-   spawn(kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
-%_Result=rpc:call(node(),kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
-  %  StartedApps=[{ServiceId_X,Vsn_X}||{ServiceId_X,Vsn_X,ok}<-Result],
-
-
-    %------ send info to controller
-    
-    SenderInfo=#sender_info{ip_addr=NodeIp,
-			    port=NodePort,
-			    module=?MODULE,line=?LINE},
-  %  if_dns:cast("controller",latest,{controller,node_register,[KubeletInfo]},{DnsIp,DnsPort},1),
+    spawn(kubelet_lib,load_start_pre_loaded_apps,[PreLoadApps,NodeIp,NodePort,{DnsIp,DnsPort}]),
  
     spawn(fun()-> local_heart_beat(?HEARTBEAT_INTERVAL) end), 
     io:format("Started Service  ~p~n",[{?MODULE}]),
@@ -179,12 +161,8 @@ handle_call({loaded_services},_From, State) ->
     {reply, Reply, State};
 
 handle_call({start_service,ServiceId,Vsn},_From, State) ->
-    
-    DnsList=State#state.dns_list,
     #kubelet_info{ip_addr=MyIp,port=Port}=State#state.kubelet_info,   
     Reply= case check_if_loaded(ServiceId,Vsn) of
-
-   % Reply= case [DnsInfo||DnsInfo<-DnsList,DnsInfo#dns_info.service_id =:=ServiceId] of
 	      false->
 		   case rpc:call(node(),kubelet_lib,load_start_app,[ServiceId,Vsn,MyIp,Port,State]) of
 		       ok->
@@ -231,15 +209,8 @@ handle_call(Request, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({heart_beat},State) ->
-    DnsList=State#state.dns_list,
-    % Send services registration to Controller
-    NodeInfo=State#state.kubelet_info,
-    NodeIp=NodeInfo#kubelet_info.ip_addr,
-    NodePort=NodeInfo#kubelet_info.port,
     {dns,DnsIp,DnsPort}=State#state.dns_addr,
-    R=if_dns:cast("controller",latest,{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort}),
- %   io:format("~p~n",[{?MODULE,?LINE,R}]),
- %   NewState=State#state{dns_list=NewDnsList},
+   if_dns:cast("controller",latest,{controller,node_register,[State#state.kubelet_info]},{DnsIp,DnsPort}),
    {noreply,State};
 
 handle_cast({upgrade,_ServiceId,_Vsn}, State) ->
@@ -254,24 +225,9 @@ handle_cast({upgrade,_ServiceId,_Vsn}, State) ->
 	    % remove temp dir
 	    % add service to service_list
 	    % service shall push info to dns and kubectroller     % 
-    
+  
     
     {noreply, State};
-
-handle_cast({dns_register,DnsInfo}, State) ->
-  %  io:format("~p~n",[{?MODULE,?LINE,register,DnsInfo}]),
-    DnsList=State#state.dns_list,
-    NewDnsList=kubelet_lib:dns_register(DnsInfo,DnsList),
-    NewState=State#state{dns_list=NewDnsList},
-  %  io:format("~p~n",[{?MODULE,?LINE,register,NewState}]),
-    {noreply, NewState};
-
-handle_cast({de_dns_register,DnsInfo}, State) ->
-%    io:format("~p~n",[{?MODULE,?LINE,de_register,InitArgs}]),
-    DnsList=State#state.dns_list,
-    NewDnsList=kubelet_lib:de_dns_register(DnsInfo,DnsList),
-    NewState=State#state{dns_list=NewDnsList},
-    {noreply, NewState};
 
 handle_cast(Msg, State) ->
     io:format("unmatched match cast ~p~n",[{Msg,?MODULE,time()}]),
@@ -309,7 +265,7 @@ handle_info({'DOWN',Ref,process,Pid,normal},  #state{lSock = LSock,active_worker
     {noreply, NewState};
 
 handle_info(Info, State) ->
-%    io:format("unmatched signal ~p~n",[{?MODULE,?LINE,Info}]),
+    io:format("unmatched info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------

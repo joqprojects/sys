@@ -96,7 +96,6 @@ update_artifact(Artifact,DbaseId)->
 		    {error,[?MODULE,?LINE,'Service eexists',ServiceId,Vsn]};
 		false ->
 		    LatestVsn=ArtifactRecord#artifact_record.latest_vsn,
-		    VsnList=
 		    case repo_lib:cmp_vsn_strings(Vsn,LatestVsn) of
 			larger->
 			    NewLatestVsn=Vsn;
